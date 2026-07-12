@@ -122,22 +122,40 @@
     const statusEl = document.getElementById("status");
     const contentEl = document.getElementById("content");
 
-    // Maps this data's nation codes (IOC-style, 3-letter) to ISO 3166-1
-    // alpha-2 codes, which is what HLTV's flag images use.
+    // Maps ISO 3166-1 alpha-3 codes (as used in this data) to alpha-2,
+    // which is what HLTV's flag images use. Covers the full standard list.
     const NATION_TO_ISO2 = {
-      USA: "US", CAN: "CA", MEX: "MX", BRA: "BR", ARG: "AR",
-      GBR: "GB", IRL: "IE", FRA: "FR", DEU: "DE", ESP: "ES",
-      ITA: "IT", POR: "PT", NED: "NL", BEL: "BE", SUI: "CH",
-      AUT: "AT", POL: "PL", HUN: "HU", CZE: "CZ", SVK: "SK",
-      SVN: "SI", CRO: "HR", ROU: "RO", BUL: "BG", GRE: "GR",
-      SWE: "SE", NOR: "NO", DEN: "DK", FIN: "FI", ISL: "IS",
-      RUS: "RU", UKR: "UA", TUR: "TR", ISR: "IL", SRB: "RS",
-      KOR: "KR", JPN: "JP", CHN: "CN", TPE: "TW", HKG: "HK",
-      IND: "IN", AUS: "AU", NZL: "NZ", ZAF: "ZA", GHA: "GH",
-      NGA: "NG", EGY: "EG", MAR: "MA", SAU: "SA", UAE: "AE",
-      THA: "TH", PHI: "PH", MAS: "MY", SGP: "SG", IDN: "ID",
-      VIE: "VN", COL: "CO", CHI: "CL", PER: "PE", PSE: "PS",
-      LAT: "LV", LTU: "LT", EST: "EE"
+      AFG:"AF", ALB:"AL", DZA:"DZ", ASM:"AS", AND:"AD", AGO:"AO", AIA:"AI",
+      ATA:"AQ", ATG:"AG", ARG:"AR", ARM:"AM", ABW:"AW", AUS:"AU", AUT:"AT",
+      AZE:"AZ", BHS:"BS", BHR:"BH", BGD:"BD", BRB:"BB", BLR:"BY", BEL:"BE",
+      BLZ:"BZ", BEN:"BJ", BMU:"BM", BTN:"BT", BOL:"BO", BIH:"BA", BWA:"BW",
+      BRA:"BR", BRN:"BN", BGR:"BG", BFA:"BF", BDI:"BI", KHM:"KH", CMR:"CM",
+      CAN:"CA", CPV:"CV", CYM:"KY", CAF:"CF", TCD:"TD", CHL:"CL", CHN:"CN",
+      COL:"CO", COM:"KM", COG:"CG", COD:"CD", COK:"CK", CRI:"CR", CIV:"CI",
+      HRV:"HR", CUB:"CU", CUW:"CW", CYP:"CY", CZE:"CZ", DNK:"DK", DJI:"DJ",
+      DMA:"DM", DOM:"DO", ECU:"EC", EGY:"EG", SLV:"SV", GNQ:"GQ", ERI:"ER",
+      EST:"EE", SWZ:"SZ", ETH:"ET", FJI:"FJ", FIN:"FI", FRA:"FR", GAB:"GA",
+      GMB:"GM", GEO:"GE", DEU:"DE", GHA:"GH", GRC:"GR", GRL:"GL", GRD:"GD",
+      GTM:"GT", GIN:"GN", GNB:"GW", GUY:"GY", HTI:"HT", HND:"HN", HKG:"HK",
+      HUN:"HU", ISL:"IS", IND:"IN", IDN:"ID", IRN:"IR", IRQ:"IQ", IRL:"IE",
+      ISR:"IL", ITA:"IT", JAM:"JM", JPN:"JP", JOR:"JO", KAZ:"KZ", KEN:"KE",
+      KIR:"KI", KWT:"KW", KGZ:"KG", LAO:"LA", LVA:"LV", LBN:"LB", LSO:"LS",
+      LBR:"LR", LBY:"LY", LIE:"LI", LTU:"LT", LUX:"LU", MAC:"MO", MDG:"MG",
+      MWI:"MW", MYS:"MY", MDV:"MV", MLI:"ML", MLT:"MT", MHL:"MH", MRT:"MR",
+      MUS:"MU", MEX:"MX", FSM:"FM", MDA:"MD", MCO:"MC", MNG:"MN", MNE:"ME",
+      MAR:"MA", MOZ:"MZ", MMR:"MM", NAM:"NA", NRU:"NR", NPL:"NP", NLD:"NL",
+      NZL:"NZ", NIC:"NI", NER:"NE", NGA:"NG", PRK:"KP", MKD:"MK", NOR:"NO",
+      OMN:"OM", PAK:"PK", PLW:"PW", PSE:"PS", PAN:"PA", PNG:"PG", PRY:"PY",
+      PER:"PE", PHL:"PH", POL:"PL", PRT:"PT", PRI:"PR", QAT:"QA", ROM:"RO",
+      ROU:"RO", RUS:"RU", RWA:"RW", KNA:"KN", LCA:"LC", VCT:"VC", WSM:"WS",
+      SMR:"SM", STP:"ST", SAU:"SA", SEN:"SN", SRB:"RS", SYC:"SC", SLE:"SL",
+      SGP:"SG", SVK:"SK", SVN:"SI", SLB:"SB", SOM:"SO", ZAF:"ZA", KOR:"KR",
+      SSD:"SS", ESP:"ES", LKA:"LK", SDN:"SD", SUR:"SR", SWE:"SE", CHE:"CH",
+      SUI:"CH", SYR:"SY", TWN:"TW", TPE:"TW", TJK:"TJ", TZA:"TZ", THA:"TH",
+      TLS:"TL", TGO:"TG", TON:"TO", TTO:"TT", TUN:"TN", TUR:"TR", TKM:"TM",
+      TUV:"TV", UGA:"UG", UKR:"UA", ARE:"AE", UAE:"AE", GBR:"GB", USA:"US",
+      URY:"UY", UZB:"UZ", VUT:"VU", VEN:"VE", VNM:"VN", VIE:"VN", YEM:"YE",
+      ZMB:"ZM", ZWE:"ZW"
     };
 
     function flagImgFor(code) {

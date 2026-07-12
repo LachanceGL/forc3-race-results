@@ -169,34 +169,38 @@
       }
     }
 
+    function guidsMatch(g1, g2) {
+      if (!g1 || !g2) return false;
+      return g1.a === g2.a && g1.b === g2.b;
+    }
+
+    function formatLapTime(ms) {
+      if (ms === null || ms === undefined || ms <= 0 || ms === Infinity) return "-";
+      const totalSeconds = ms / 1000;
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = (totalSeconds % 60).toFixed(3).padStart(6, "0");
+      return `${minutes}:${seconds}`;
+    }
+
     function renderSessionDetail(session, data) {
       const heading = document.createElement("h2");
       heading.textContent = `${session.session_type} — ${formatTimestamp(session.timestamp)}`;
       contentEl.appendChild(heading);
 
-      // Try to find an array of driver/result entries in the response.
-      // Different result formats may nest this differently, so check common spots.
-      let entries = null;
-      if (Array.isArray(data)) {
-        entries = data;
-      } else if (Array.isArray(data.Result)) {
-        entries = data.Result;
-      } else if (Array.isArray(data.results)) {
-        entries = data.results;
-      } else if (Array.isArray(data.entries)) {
-        entries = data.entries;
-      }
+      const meta = document.createElement("div");
+      meta.style.color = "#999";
+      meta.style.fontSize = "13px";
+      meta.style.marginBottom = "16px";
+      meta.textContent = `${data.track_name || ""} ${data.track_layout_name ? "– " + data.track_layout_name : ""}`;
+      contentEl.appendChild(meta);
 
-      if (!entries) {
-        // Fallback: show raw JSON so we can see the actual shape and refine this.
-        const pre = document.createElement("pre");
-        pre.style.whiteSpace = "pre-wrap";
-        pre.style.background = "#2a2a2a";
-        pre.style.padding = "16px";
-        pre.style.borderRadius = "6px";
-        pre.style.fontSize = "13px";
-        pre.textContent = JSON.stringify(data, null, 2);
-        contentEl.appendChild(pre);
+      const driverStandings = data.driver_standings || [];
+
+      if (driverStandings.length === 0) {
+        const p = document.createElement("p");
+        p.style.color = "#999";
+        p.textContent = "No results recorded for this session (no drivers set laps).";
+        contentEl.appendChild(p);
         return;
       }
 
@@ -207,6 +211,7 @@
             <th>#</th>
             <th>Driver</th>
             <th>Car</th>
+            <th>Nation</th>
             <th>Best Lap</th>
           </tr>
         </thead>
@@ -214,21 +219,49 @@
       `;
       const tbody = table.querySelector("tbody");
 
-      entries.forEach((entry, i) => {
-        const driver = entry.DriverName || entry.driver || entry.name || "-";
-        const car = entry.CarModel || entry.car || "-";
-        const bestLap = entry.BestLap || entry.bestLap || entry.best_lap || "-";
+      driverStandings.forEach((driverGuid, i) => {
+        const driver = (data.drivers || []).find(d => guidsMatch(d.guid, driverGuid));
+        const carStanding = (data.car_standings || [])[i];
+        const car = carStanding
+          ? (data.cars || []).find(c => guidsMatch(c.car_id, carStanding.car_id || carStanding))
+          : null;
+
+        // Find this driver's best lap from the laps array, if present
+        const driverLaps = (data.laps || []).filter(lap =>
+          guidsMatch(lap.driver_guid || lap.driver, driverGuid)
+        );
+        const bestLapMs = driverLaps.length
+          ? Math.min(...driverLaps.map(l => l.lap_time_ms || l.laptime_ms || l.time_ms || Infinity))
+          : null;
+
+        const driverName = driver
+          ? `${driver.first_name || ""} ${driver.last_name || ""}`.trim()
+          : "-";
+        const carName = car ? (car.model_displayname || "-") : "-";
+        const nation = driver ? (driver.nation || "-") : "-";
+
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td>${i + 1}</td>
-          <td>${driver}</td>
-          <td>${car}</td>
-          <td>${bestLap}</td>
+          <td>${driverName || "-"}</td>
+          <td>${carName}</td>
+          <td>${nation}</td>
+          <td>${formatLapTime(bestLapMs)}</td>
         `;
         tbody.appendChild(tr);
       });
 
       contentEl.appendChild(table);
+
+      // Note if lap timing data wasn't present at all
+      if (!data.laps || data.laps.length === 0) {
+        const note = document.createElement("p");
+        note.style.color = "#999";
+        note.style.fontSize = "13px";
+        note.style.marginTop = "12px";
+        note.textContent = "Lap time data wasn't available in this session's results.";
+        contentEl.appendChild(note);
+      }
     }
 
     loadSessionList();

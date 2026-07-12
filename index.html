@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Race Results</title>
+  <style>
+    body { font-family: sans-serif; background: #1a1a1a; color: #eee; padding: 20px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 8px; border-bottom: 1px solid #333; text-align: left; }
+    th { background: #2a2a2a; }
+  </style>
+</head>
+<body>
+  <h1>Race Results</h1>
+  <div id="results">Loading...</div>
+
+  <script>
+    const WORKER_URL = "https://YOUR-WORKER-NAME.YOUR-SUBDOMAIN.workers.dev";
+
+    fetch(WORKER_URL + "/results")
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById("results").innerText = JSON.stringify(data, null, 2);
+        // We'll replace this with a real table once we see the data shape
+      })
+      .catch(err => {
+        document.getElementById("results").innerText = "Error loading results: " + err;
+      });
+  </script>
+</body>
+</html>

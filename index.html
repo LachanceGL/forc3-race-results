@@ -416,17 +416,16 @@
     const LEADERBOARDS = {
       nordschleife: {
         workerPrefix: "/server1",
-        shareKey: "ef64a8e5-f0cc-4fda-9242-33086d827694",
-        serverName: "A1 / GT3 FORC3 | NA-East | Nordschleife – Best Lap : GT3forc3.com"
+        shareKey: "ef64a8e5-f0cc-4fda-9242-33086d827694"
       },
       spa: {
         workerPrefix: "/server2",
-        shareKey: "c8393a9b-16f2-4e29-9ddb-7de2ab3ad5ae",
-        serverName: "" // TODO: add this server's name
+        shareKey: "c8393a9b-16f2-4e29-9ddb-7de2ab3ad5ae"
       }
     };
 
     const leaderboardCache = {};
+    const serverNameCache = {};
     let activeTrack = "nordschleife";
 
     function renderLeaderboardRows(rows) {
@@ -503,13 +502,46 @@
       }
     }
 
+    async function loadServerName(track) {
+      const labelEl = document.getElementById("leaderboard-server-name");
+
+      if (serverNameCache[track]) {
+        if (activeTrack === track) labelEl.textContent = serverNameCache[track];
+        return;
+      }
+
+      const config = LEADERBOARDS[track];
+      try {
+        const listRes = await fetch(WORKER_URL + `${config.workerPrefix}/api/v1/results`);
+        if (!listRes.ok) throw new Error("Server returned " + listRes.status);
+        const listData = await listRes.json();
+
+        const sessions = (listData.results || []).slice().sort(
+          (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
+        );
+        if (sessions.length === 0) return;
+
+        const latestRes = await fetch(WORKER_URL + `${config.workerPrefix}${sessions[0].download_url}`);
+        if (!latestRes.ok) throw new Error("Server returned " + latestRes.status);
+        const latest = await latestRes.json();
+
+        if (latest.server_name) {
+          serverNameCache[track] = latest.server_name;
+          if (activeTrack === track) labelEl.textContent = latest.server_name;
+        }
+      } catch (err) {
+        // Silently leave the label blank if this fails
+      }
+    }
+
     function switchToTrack(track) {
       if (!LEADERBOARDS[track]) return;
       document.querySelectorAll(".leaderboard-tab").forEach(t => {
         t.classList.toggle("active", t.dataset.track === track);
       });
-      document.getElementById("leaderboard-server-name").textContent = LEADERBOARDS[track].serverName || "";
+      document.getElementById("leaderboard-server-name").textContent = serverNameCache[track] || "";
       loadLeaderboard(track);
+      loadServerName(track);
     }
 
     // Clicking a tab just changes the URL hash (native <a> behavior);
@@ -528,7 +560,8 @@
         t.classList.toggle("active", t.dataset.track === initialTrack);
       });
     }
-    document.getElementById("leaderboard-server-name").textContent = LEADERBOARDS[activeTrack].serverName || "";
+    document.getElementById("leaderboard-server-name").textContent = "";
+    loadServerName(activeTrack);
 
     async function loadCurrentTrack() {
       const subtitleEl = document.getElementById("page-subtitle");

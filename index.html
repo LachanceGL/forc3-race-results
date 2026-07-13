@@ -189,7 +189,30 @@
       margin-top: 4px;
     }
 
-    .country-grid {
+    .country-stats {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #2e2e2e;
+    }
+    .country-stats-label {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: #eee;
+    }
+    .country-stats-numbers {
+      font-size: 13px;
+      color: #999;
+    }
+    .country-stats-numbers strong {
+      color: #e63946;
+    }
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
       gap: 10px;
@@ -431,6 +454,16 @@
         }
 
         statusEl.textContent = "";
+
+        const totalDrivers = nations.reduce((sum, [, count]) => sum + count, 0);
+
+        const stats = document.createElement("div");
+        stats.className = "country-stats";
+        stats.innerHTML = `
+          <div class="country-stats-label">Player Counts Around The World</div>
+          <div class="country-stats-numbers"><strong>${totalDrivers}</strong> drivers across <strong>${nations.length}</strong> countries</div>
+        `;
+        contentEl.appendChild(stats);
 
         const grid = document.createElement("div");
         grid.className = "country-grid";

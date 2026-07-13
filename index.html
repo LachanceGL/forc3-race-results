@@ -108,7 +108,30 @@
       font-size: 12px;
     }
 
-    h2.section-title {
+    .leaderboard-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .leaderboard-tab {
+      background: #2a2a2a;
+      color: #999;
+      border: 1px solid #333;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .leaderboard-tab:hover {
+      background: #333;
+      color: #eee;
+    }
+    .leaderboard-tab.active {
+      background: #e63946;
+      color: #fff;
+      border-color: #e63946;
+    }
       font-size: 20px;
       margin-top: 0;
       margin-bottom: 4px;
@@ -231,6 +254,10 @@
   </div>
 
   <h2 class="section-title" style="border-top: none; padding-top: 0;">ASSETTO CORSA EVO</h2>
+  <div class="leaderboard-tabs">
+    <button class="leaderboard-tab active" data-track="nordschleife">Nordschleife</button>
+    <button class="leaderboard-tab" data-track="spa">Spa-Francorchamps</button>
+  </div>
   <div id="leaderboard-status"></div>
   <div id="leaderboard-frame" class="leaderboard-frame"></div>
 
@@ -375,19 +402,73 @@
       }
     }
 
-    // ---- AC EVO Leaderboard (best laps, fetched from the public embed's rows endpoint) ----
-    const LEADERBOARD_SHARE_KEY = "ef64a8e5-f0cc-4fda-9242-33086d827694";
+    // ---- AC EVO Leaderboards (best laps, fetched from each server's public embed rows endpoint) ----
+    const LEADERBOARDS = {
+      nordschleife: {
+        workerPrefix: "/server1",
+        shareKey: "ef64a8e5-f0cc-4fda-9242-33086d827694"
+      },
+      spa: {
+        workerPrefix: "/server2",
+        shareKey: "c8393a9b-16f2-4e29-9ddb-7de2ab3ad5ae"
+      }
+    };
 
-    async function loadLeaderboard() {
+    const leaderboardCache = {};
+    let activeTrack = "nordschleife";
+
+    function renderLeaderboardRows(rows) {
+      const table = document.createElement("table");
+      table.innerHTML = `
+        <thead>
+          <tr>
+            <th class="lb-pos">#</th>
+            <th>Driver</th>
+            <th>Car</th>
+            <th class="lb-best">Best Lap</th>
+            <th class="lb-session">Session</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      `;
+      const tbody = table.querySelector("tbody");
+
+      rows.forEach(row => {
+        const tr = document.createElement("tr");
+        const nickname = row.Nickname ? `<div class="lb-nickname">${row.Nickname}</div>` : "";
+        tr.innerHTML = `
+          <td class="lb-pos">${row.Position}</td>
+          <td>${row.FullName || "—"}${nickname}</td>
+          <td>${row.CarName || "—"}</td>
+          <td class="lb-best">${row.BestLap || "-"}</td>
+          <td class="lb-session">${row.SessionType || ""}<br>${row.SessionDate || ""}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      return table;
+    }
+
+    async function loadLeaderboard(track) {
+      activeTrack = track;
       const lbStatusEl = document.getElementById("leaderboard-status");
       const lbFrameEl = document.getElementById("leaderboard-frame");
+      const config = LEADERBOARDS[track];
+
+      // Serve from cache instantly if we've already fetched this track
+      if (leaderboardCache[track]) {
+        lbStatusEl.textContent = "";
+        lbFrameEl.innerHTML = "";
+        lbFrameEl.appendChild(renderLeaderboardRows(leaderboardCache[track]));
+        return;
+      }
 
       lbStatusEl.textContent = "Loading leaderboard...";
       lbStatusEl.className = "";
       lbFrameEl.innerHTML = "";
 
       try {
-        const res = await fetch(WORKER_URL + `/leaderboards/embed/${LEADERBOARD_SHARE_KEY}/rows`);
+        const res = await fetch(WORKER_URL + `${config.workerPrefix}/leaderboards/embed/${config.shareKey}/rows`);
         if (!res.ok) throw new Error("Server returned " + res.status);
         const rows = await res.json();
 
@@ -396,43 +477,27 @@
           return;
         }
 
+        leaderboardCache[track] = rows;
+
+        // Only render if the user hasn't switched tabs while this was loading
+        if (activeTrack !== track) return;
+
         lbStatusEl.textContent = "";
-
-        const table = document.createElement("table");
-        table.innerHTML = `
-          <thead>
-            <tr>
-              <th class="lb-pos">#</th>
-              <th>Driver</th>
-              <th>Car</th>
-              <th class="lb-best">Best Lap</th>
-              <th class="lb-session">Session</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        `;
-        const tbody = table.querySelector("tbody");
-
-        rows.forEach(row => {
-          const tr = document.createElement("tr");
-          const nickname = row.Nickname ? `<div class="lb-nickname">${row.Nickname}</div>` : "";
-          tr.innerHTML = `
-            <td class="lb-pos">${row.Position}</td>
-            <td>${row.FullName || "—"}${nickname}</td>
-            <td>${row.CarName || "—"}</td>
-            <td class="lb-best">${row.BestLap || "-"}</td>
-            <td class="lb-session">${row.SessionType || ""}<br>${row.SessionDate || ""}</td>
-          `;
-          tbody.appendChild(tr);
-        });
-
-        lbFrameEl.appendChild(table);
+        lbFrameEl.appendChild(renderLeaderboardRows(rows));
       } catch (err) {
+        if (activeTrack !== track) return;
         lbStatusEl.textContent = "Error loading leaderboard: " + err.message;
         lbStatusEl.className = "error";
       }
     }
 
+    document.querySelectorAll(".leaderboard-tab").forEach(tab => {
+      tab.addEventListener("click", () => {
+        document.querySelectorAll(".leaderboard-tab").forEach(t => t.classList.remove("active"));
+        tab.classList.add("active");
+        loadLeaderboard(tab.dataset.track);
+      });
+    });
 
     async function loadCurrentTrack() {
       const subtitleEl = document.getElementById("page-subtitle");
@@ -461,7 +526,7 @@
 
     loadCountries();
     loadCurrentTrack();
-    loadLeaderboard();
+    loadLeaderboard(activeTrack);
 
     document.getElementById("copyright").textContent =
       `© ${new Date().getFullYear()} GT3forc3.com`;

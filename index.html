@@ -233,6 +233,32 @@
       font-size: 12px;
     }
 
+    @media (max-width: 600px) {
+      .country-grid {
+        grid-template-columns: 1fr;
+        gap: 6px;
+      }
+      .country-card {
+        padding: 8px 12px;
+      }
+      .country-flag {
+        width: 24px;
+        height: 16px;
+      }
+      .country-info {
+        flex-direction: row;
+        align-items: baseline;
+        gap: 6px;
+        flex: 1;
+      }
+      .country-code {
+        font-size: 13px;
+      }
+      .country-count {
+        font-size: 11px;
+      }
+    }
+
     #status {
       color: #999;
     }
@@ -424,7 +450,7 @@
         const nationCounts = {};
 
         // Nation codes to exclude entirely from the country grid.
-        const EXCLUDED_NATIONS = new Set(["REU", "RUS", "ATA", "GLP", "CUW", "UMI", "MTQ"]);
+        const EXCLUDED_NATIONS = new Set(["REU", "RUS", "ATA", "GLP", "CUW", "UMI", "MTQ", "IRN"]);
 
         detailResults.forEach(result => {
           if (result.status !== "fulfilled") return;

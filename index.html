@@ -357,7 +357,7 @@
 
   <div class="section-box">
     <h2 class="section-title">🌍 Where GT3 FORC3 Drivers Race From</h2>
-    <div class="section-subtitle">Countries represented across recent sessions</div>
+    <div class="section-subtitle">Countries represented</div>
     <div id="status"></div>
     <div id="content"></div>
   </div>
@@ -374,7 +374,6 @@
 
   <script>
     const WORKER_URL = "https://raspy-salad-d894.contact-eb9.workers.dev";
-    const SESSIONS_TO_SCAN = 30; // how many recent sessions to pull driver data from
 
     const statusEl = document.getElementById("status");
     const contentEl = document.getElementById("content");
@@ -433,8 +432,7 @@
 
         const sessions = (listData.results || [])
           .slice()
-          .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-          .slice(0, SESSIONS_TO_SCAN);
+          .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
         if (sessions.length === 0) {
           statusEl.textContent = "No session data found.";

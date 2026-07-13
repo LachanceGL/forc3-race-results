@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Race Results</title>
+  <title>GT3FORC3.COM / Sim Racing Community</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -508,6 +508,12 @@
       "Nathan VAN DE HEL": "Cheater, will be removed"
     };
 
+    // For entries with no driver name (shown as "—"), flag by exact BestLap time instead,
+    // since that's the only reliably unique identifier available for those rows.
+    const FLAGGED_LAP_TIMES = {
+      "5:49.692": "Cheater, will be removed"
+    };
+
     function renderLeaderboardRows(rows) {
       const table = document.createElement("table");
       table.innerHTML = `
@@ -527,7 +533,7 @@
       rows.forEach(row => {
         const tr = document.createElement("tr");
         const nickname = row.Nickname ? `<div class="lb-nickname">${row.Nickname}</div>` : "";
-        const flagNote = FLAGGED_DRIVERS[row.FullName];
+        const flagNote = FLAGGED_DRIVERS[row.FullName] || FLAGGED_LAP_TIMES[row.BestLap];
         const flagHtml = flagNote ? `<div class="lb-flag">${flagNote}</div>` : "";
         const bestLapClass = flagNote ? "lb-best lb-flagged-time" : "lb-best";
         tr.innerHTML = `

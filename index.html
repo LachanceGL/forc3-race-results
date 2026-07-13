@@ -190,21 +190,9 @@
     }
 
     .country-stats {
-      display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 8px;
       margin-bottom: 16px;
       padding-bottom: 12px;
       border-bottom: 1px solid #2e2e2e;
-    }
-    .country-stats-label {
-      font-size: 13px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.03em;
-      color: #eee;
     }
     .country-stats-numbers {
       font-size: 13px;
@@ -463,8 +451,7 @@
         const stats = document.createElement("div");
         stats.className = "country-stats";
         stats.innerHTML = `
-          <div class="country-stats-label">Player Counts Around The World</div>
-          <div class="country-stats-numbers"><strong>${totalDrivers}</strong> drivers across <strong>${nations.length}</strong> countries</div>
+          <div class="country-stats-numbers">Drivers across <strong>${nations.length}</strong> countries</div>
         `;
         contentEl.appendChild(stats);
 

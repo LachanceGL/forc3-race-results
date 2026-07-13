@@ -538,7 +538,7 @@
         const bestLapClass = flagNote ? "lb-best lb-flagged-time" : "lb-best";
         tr.innerHTML = `
           <td class="lb-pos">${row.Position}</td>
-          <td>${row.FullName || "—"}${nickname}${flagHtml}</td>
+          <td><div class="lb-driver-name">${row.FullName || "—"}</div>${nickname}${flagHtml}</td>
           <td>${row.CarName || "—"}</td>
           <td class="${bestLapClass}">${row.BestLap || "-"}</td>
           <td class="lb-session">${row.SessionType || ""}<br>${row.SessionDate || ""}</td>

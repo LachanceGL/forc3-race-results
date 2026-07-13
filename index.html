@@ -113,6 +113,22 @@
       opacity: 0.6;
       font-size: 12px;
     }
+    .lb-flag {
+      display: inline-block;
+      margin-top: 2px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: #ff9900;
+      background: rgba(255, 153, 0, 0.12);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .lb-flagged-time {
+      text-decoration: line-through;
+      opacity: 0.6;
+    }
 
     .leaderboard-tabs {
       display: flex;
@@ -428,6 +444,13 @@
     const serverNameCache = {};
     let activeTrack = "nordschleife";
 
+    // Add a driver's exact FullName here (as it appears in the leaderboard) to flag them.
+    // The note text shows under their name and their best lap gets struck through.
+    // Remove the entry once they're actually removed from the leaderboard by the server admin.
+    const FLAGGED_DRIVERS = {
+      "Nathan VAN DE HEL": "Cheater, will be removed"
+    };
+
     function renderLeaderboardRows(rows) {
       const table = document.createElement("table");
       table.innerHTML = `
@@ -447,11 +470,14 @@
       rows.forEach(row => {
         const tr = document.createElement("tr");
         const nickname = row.Nickname ? `<div class="lb-nickname">${row.Nickname}</div>` : "";
+        const flagNote = FLAGGED_DRIVERS[row.FullName];
+        const flagHtml = flagNote ? `<div class="lb-flag">${flagNote}</div>` : "";
+        const bestLapClass = flagNote ? "lb-best lb-flagged-time" : "lb-best";
         tr.innerHTML = `
           <td class="lb-pos">${row.Position}</td>
-          <td>${row.FullName || "—"}${nickname}</td>
+          <td>${row.FullName || "—"}${nickname}${flagHtml}</td>
           <td>${row.CarName || "—"}</td>
-          <td class="lb-best">${row.BestLap || "-"}</td>
+          <td class="${bestLapClass}">${row.BestLap || "-"}</td>
           <td class="lb-session">${row.SessionType || ""}<br>${row.SessionDate || ""}</td>
         `;
         tbody.appendChild(tr);

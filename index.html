@@ -58,7 +58,7 @@
 
     .leaderboard-frame {
       width: 100%;
-      max-height: 560px;
+      max-height: 590px;
       overflow-y: auto;
       border-radius: 8px;
       background: #111;
@@ -122,6 +122,8 @@
       cursor: pointer;
       font-size: 14px;
       font-weight: 600;
+      text-decoration: none;
+      display: inline-block;
     }
     .leaderboard-tab:hover {
       background: #333;
@@ -255,8 +257,8 @@
 
   <h2 class="section-title" style="border-top: none; padding-top: 0;">ASSETTO CORSA EVO</h2>
   <div class="leaderboard-tabs">
-    <button class="leaderboard-tab active" data-track="nordschleife">Nordschleife</button>
-    <button class="leaderboard-tab" data-track="spa">Spa-Francorchamps</button>
+    <a class="leaderboard-tab active" href="#nordschleife" data-track="nordschleife">Nordschleife</a>
+    <a class="leaderboard-tab" href="#spa" data-track="spa">Spa-Francorchamps</a>
   </div>
   <div id="leaderboard-status"></div>
   <div id="leaderboard-frame" class="leaderboard-frame"></div>
@@ -361,7 +363,8 @@
             if (seenPlayers.has(key)) return;
             seenPlayers.add(key);
 
-            const nation = driver.nation || "Unknown";
+            const nation = driver.nation;
+            if (!nation) return;
             nationCounts[nation] = (nationCounts[nation] || 0) + 1;
           });
         });
@@ -491,13 +494,30 @@
       }
     }
 
-    document.querySelectorAll(".leaderboard-tab").forEach(tab => {
-      tab.addEventListener("click", () => {
-        document.querySelectorAll(".leaderboard-tab").forEach(t => t.classList.remove("active"));
-        tab.classList.add("active");
-        loadLeaderboard(tab.dataset.track);
+    function switchToTrack(track) {
+      if (!LEADERBOARDS[track]) return;
+      document.querySelectorAll(".leaderboard-tab").forEach(t => {
+        t.classList.toggle("active", t.dataset.track === track);
       });
+      loadLeaderboard(track);
+    }
+
+    // Clicking a tab just changes the URL hash (native <a> behavior);
+    // this listener does the actual switching, so back/forward and
+    // direct links (e.g. gt3forc3.com/#spa) all work the same way.
+    window.addEventListener("hashchange", () => {
+      const track = window.location.hash.replace("#", "");
+      switchToTrack(track);
     });
+
+    // On first load, respect a track named in the URL hash if present
+    const initialTrack = window.location.hash.replace("#", "");
+    if (LEADERBOARDS[initialTrack]) {
+      activeTrack = initialTrack;
+      document.querySelectorAll(".leaderboard-tab").forEach(t => {
+        t.classList.toggle("active", t.dataset.track === initialTrack);
+      });
+    }
 
     async function loadCurrentTrack() {
       const subtitleEl = document.getElementById("page-subtitle");

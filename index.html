@@ -118,6 +118,50 @@
       color: #ff8080;
     }
 
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      padding: 10px 8px;
+      border-bottom: 1px solid #333;
+      text-align: left;
+      font-size: 14px;
+    }
+    th {
+      background: #2a2a2a;
+      font-weight: 600;
+    }
+    .session-row {
+      cursor: pointer;
+    }
+    .session-row:hover {
+      background: #242424;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .badge-race { background: #4a2a2a; color: #ff8080; }
+    .badge-qualify { background: #2a3a4a; color: #80c0ff; }
+    .badge-practice { background: #2a3a2a; color: #80ff9c; }
+
+    #session-back-btn {
+      display: none;
+      background: #2a2a2a;
+      color: #eee;
+      border: 1px solid #444;
+      padding: 8px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-bottom: 16px;
+      font-size: 14px;
+    }
+    #session-back-btn:hover { background: #333; }
+
     footer {
       margin-top: 40px;
       padding-top: 20px;
@@ -177,6 +221,12 @@
   <div class="section-subtitle">Countries represented across recent sessions</div>
   <div id="status"></div>
   <div id="content"></div>
+
+  <h2 class="section-title">Session History</h2>
+  <div class="section-subtitle">Browse individual sessions</div>
+  <button id="session-back-btn">&larr; Back to sessions</button>
+  <div id="session-status"></div>
+  <div id="session-content"></div>
 
   <footer>
     <span id="copyright">© GT3forc3.com</span>
@@ -339,8 +389,196 @@
       }
     }
 
+    // ---- Session History browser ----
+    const sessionStatusEl = document.getElementById("session-status");
+    const sessionContentEl = document.getElementById("session-content");
+    const sessionBackBtn = document.getElementById("session-back-btn");
+
+    sessionBackBtn.addEventListener("click", loadSessionList);
+
+    function formatTimestamp(ts) {
+      const date = new Date(ts);
+      return date.toLocaleString(undefined, {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit"
+      });
+    }
+
+    function badgeClassFor(type) {
+      if (type === "Race") return "badge-race";
+      if (type === "Practice") return "badge-practice";
+      return "badge-qualify";
+    }
+
+    async function loadSessionList() {
+      sessionBackBtn.style.display = "none";
+      sessionStatusEl.textContent = "Loading sessions...";
+      sessionStatusEl.className = "";
+      sessionContentEl.innerHTML = "";
+
+      try {
+        const res = await fetch(WORKER_URL + "/api/v1/results");
+        if (!res.ok) throw new Error("Server returned " + res.status);
+        const data = await res.json();
+
+        const sessions = (data.results || []).slice().sort(
+          (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
+        );
+
+        if (sessions.length === 0) {
+          sessionStatusEl.textContent = "No sessions found.";
+          return;
+        }
+
+        sessionStatusEl.textContent = "";
+
+        const table = document.createElement("table");
+        table.innerHTML = `
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Type</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        `;
+        const tbody = table.querySelector("tbody");
+
+        sessions.forEach(session => {
+          const tr = document.createElement("tr");
+          tr.className = "session-row";
+          tr.innerHTML = `
+            <td>${formatTimestamp(session.timestamp)}</td>
+            <td><span class="badge ${badgeClassFor(session.session_type)}">${session.session_type}</span></td>
+          `;
+          tr.addEventListener("click", () => loadSessionDetail(session));
+          tbody.appendChild(tr);
+        });
+
+        sessionContentEl.appendChild(table);
+      } catch (err) {
+        sessionStatusEl.textContent = "Error loading sessions: " + err.message;
+        sessionStatusEl.className = "error";
+      }
+    }
+
+    function guidsMatch(g1, g2) {
+      if (!g1 || !g2) return false;
+      return g1.a === g2.a && g1.b === g2.b;
+    }
+
+    function formatLapTime(ms) {
+      if (ms === null || ms === undefined || ms <= 0 || ms === Infinity) return "-";
+      const totalSeconds = ms / 1000;
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = (totalSeconds % 60).toFixed(3).padStart(6, "0");
+      return `${minutes}:${seconds}`;
+    }
+
+    async function loadSessionDetail(session) {
+      sessionBackBtn.style.display = "inline-block";
+      sessionStatusEl.textContent = "Loading results...";
+      sessionStatusEl.className = "";
+      sessionContentEl.innerHTML = "";
+
+      try {
+        const res = await fetch(WORKER_URL + session.download_url);
+        if (!res.ok) throw new Error("Server returned " + res.status);
+        const data = await res.json();
+
+        sessionStatusEl.textContent = "";
+        renderSessionDetail(session, data);
+      } catch (err) {
+        sessionStatusEl.textContent = "Error loading session detail: " + err.message;
+        sessionStatusEl.className = "error";
+      }
+    }
+
+    function renderSessionDetail(session, data) {
+      const heading = document.createElement("h3");
+      heading.textContent = `${session.session_type} — ${formatTimestamp(session.timestamp)}`;
+      sessionContentEl.appendChild(heading);
+
+      const meta = document.createElement("div");
+      meta.style.color = "#999";
+      meta.style.fontSize = "13px";
+      meta.style.marginBottom = "16px";
+      meta.textContent = `${data.track_name || ""} ${data.track_layout_name ? "– " + data.track_layout_name : ""}`;
+      sessionContentEl.appendChild(meta);
+
+      const driverStandings = data.driver_standings || [];
+
+      if (driverStandings.length === 0) {
+        const p = document.createElement("p");
+        p.style.color = "#999";
+        p.textContent = "No results recorded for this session.";
+        sessionContentEl.appendChild(p);
+        return;
+      }
+
+      const table = document.createElement("table");
+      table.innerHTML = `
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Driver</th>
+            <th>Car</th>
+            <th>Nation</th>
+            <th>Best Lap</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      `;
+      const tbody = table.querySelector("tbody");
+
+      driverStandings.forEach((driverGuid, i) => {
+        const driver = (data.drivers || []).find(d => guidsMatch(d.guid, driverGuid));
+        const carStanding = (data.car_standings || [])[i];
+        const car = carStanding
+          ? (data.cars || []).find(c => guidsMatch(c.car_id, carStanding.car_id || carStanding))
+          : null;
+
+        const driverLaps = (data.laps || []).filter(lap =>
+          guidsMatch(lap.driver_guid || lap.driver, driverGuid)
+        );
+        const bestLapMs = driverLaps.length
+          ? Math.min(...driverLaps.map(l => l.lap_time_ms || l.laptime_ms || l.time_ms || Infinity))
+          : null;
+
+        const driverName = driver
+          ? `${driver.first_name || ""} ${driver.last_name || ""}`.trim()
+          : "-";
+        const carName = car ? (car.model_displayname || "-") : "-";
+        const nation = driver ? (driver.nation || "-") : "-";
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${i + 1}</td>
+          <td>${driverName || "-"}</td>
+          <td>${carName}</td>
+          <td>${nation}</td>
+          <td>${formatLapTime(bestLapMs)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      sessionContentEl.appendChild(table);
+
+      if (!data.laps || data.laps.length === 0) {
+        const note = document.createElement("p");
+        note.style.color = "#999";
+        note.style.fontSize = "13px";
+        note.style.marginTop = "12px";
+        note.textContent = "Lap time data wasn't available in this session's results.";
+        sessionContentEl.appendChild(note);
+      }
+    }
+
     loadCountries();
     loadCurrentTrack();
+    loadSessionList();
 
     document.getElementById("copyright").textContent =
       `© ${new Date().getFullYear()} GT3forc3.com`;

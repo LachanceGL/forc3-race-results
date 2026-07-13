@@ -56,6 +56,12 @@
     }
     .discord-link:hover { background: #4752c4; }
 
+    .leaderboard-server-name {
+      color: #999;
+      font-size: 13px;
+      margin-bottom: 16px;
+    }
+
     .leaderboard-frame {
       width: 100%;
       max-height: 590px;
@@ -260,6 +266,7 @@
     <a class="leaderboard-tab active" href="#nordschleife" data-track="nordschleife">Nordschleife</a>
     <a class="leaderboard-tab" href="#spa" data-track="spa">Spa-Francorchamps</a>
   </div>
+  <div class="leaderboard-server-name" id="leaderboard-server-name"></div>
   <div id="leaderboard-status"></div>
   <div id="leaderboard-frame" class="leaderboard-frame"></div>
 
@@ -409,11 +416,13 @@
     const LEADERBOARDS = {
       nordschleife: {
         workerPrefix: "/server1",
-        shareKey: "ef64a8e5-f0cc-4fda-9242-33086d827694"
+        shareKey: "ef64a8e5-f0cc-4fda-9242-33086d827694",
+        serverName: "A1 / GT3 FORC3 | NA-East | Nordschleife – Best Lap : GT3forc3.com"
       },
       spa: {
         workerPrefix: "/server2",
-        shareKey: "c8393a9b-16f2-4e29-9ddb-7de2ab3ad5ae"
+        shareKey: "c8393a9b-16f2-4e29-9ddb-7de2ab3ad5ae",
+        serverName: "" // TODO: add this server's name
       }
     };
 
@@ -499,6 +508,7 @@
       document.querySelectorAll(".leaderboard-tab").forEach(t => {
         t.classList.toggle("active", t.dataset.track === track);
       });
+      document.getElementById("leaderboard-server-name").textContent = LEADERBOARDS[track].serverName || "";
       loadLeaderboard(track);
     }
 
@@ -518,6 +528,7 @@
         t.classList.toggle("active", t.dataset.track === initialTrack);
       });
     }
+    document.getElementById("leaderboard-server-name").textContent = LEADERBOARDS[activeTrack].serverName || "";
 
     async function loadCurrentTrack() {
       const subtitleEl = document.getElementById("page-subtitle");

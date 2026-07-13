@@ -58,11 +58,38 @@
 
     .leaderboard-frame {
       width: 100%;
-      height: 800px;
-      border: none;
+      max-height: 800px;
+      overflow-y: auto;
       border-radius: 8px;
       background: #111;
       margin-bottom: 32px;
+    }
+    .leaderboard-frame table { width: 100%; }
+    .leaderboard-frame thead th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    .lb-pos {
+      width: 40px;
+      text-align: center;
+      opacity: 0.6;
+      font-weight: 700;
+    }
+    .lb-nickname {
+      opacity: 0.5;
+      font-size: 12px;
+    }
+    .lb-best {
+      font-family: "SF Mono", Consolas, monospace;
+      font-weight: 700;
+      color: #e63946;
+      text-align: right;
+    }
+    .lb-session {
+      text-align: right;
+      opacity: 0.6;
+      font-size: 12px;
     }
 
     h2.section-title {
@@ -211,11 +238,8 @@
   </div>
 
   <h2 class="section-title" style="border-top: none; padding-top: 0;">ASSETTO CORSA EVO</h2>
-  <iframe
-    class="leaderboard-frame"
-    src="https://ca.assettohosting.com:10647/leaderboards/embed/ef64a8e5-f0cc-4fda-9242-33086d827694"
-    loading="lazy">
-  </iframe>
+  <div id="leaderboard-status"></div>
+  <div id="leaderboard-frame" class="leaderboard-frame"></div>
 
   <h2 class="section-title">Where Our Drivers Race From</h2>
   <div class="section-subtitle">Countries represented across recent sessions</div>
@@ -364,7 +388,65 @@
       }
     }
 
-    async function loadCurrentTrack() {
+    // ---- AC EVO Leaderboard (best laps, fetched from the public embed's rows endpoint) ----
+    const LEADERBOARD_SHARE_KEY = "ef64a8e5-f0cc-4fda-9242-33086d827694";
+
+    async function loadLeaderboard() {
+      const lbStatusEl = document.getElementById("leaderboard-status");
+      const lbFrameEl = document.getElementById("leaderboard-frame");
+
+      lbStatusEl.textContent = "Loading leaderboard...";
+      lbStatusEl.className = "";
+      lbFrameEl.innerHTML = "";
+
+      try {
+        const res = await fetch(WORKER_URL + `/leaderboards/embed/${LEADERBOARD_SHARE_KEY}/rows`);
+        if (!res.ok) throw new Error("Server returned " + res.status);
+        const rows = await res.json();
+
+        if (!rows || rows.length === 0) {
+          lbStatusEl.textContent = "No leaderboard results found.";
+          return;
+        }
+
+        lbStatusEl.textContent = "";
+
+        const table = document.createElement("table");
+        table.innerHTML = `
+          <thead>
+            <tr>
+              <th class="lb-pos">#</th>
+              <th>Driver</th>
+              <th>Car</th>
+              <th class="lb-best">Best Lap</th>
+              <th class="lb-session">Session</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        `;
+        const tbody = table.querySelector("tbody");
+
+        rows.forEach(row => {
+          const tr = document.createElement("tr");
+          const nickname = row.Nickname ? `<div class="lb-nickname">${row.Nickname}</div>` : "";
+          tr.innerHTML = `
+            <td class="lb-pos">${row.Position}</td>
+            <td>${row.FullName || "—"}${nickname}</td>
+            <td>${row.CarName || "—"}</td>
+            <td class="lb-best">${row.BestLap || "-"}</td>
+            <td class="lb-session">${row.SessionType || ""}<br>${row.SessionDate || ""}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+        lbFrameEl.appendChild(table);
+      } catch (err) {
+        lbStatusEl.textContent = "Error loading leaderboard: " + err.message;
+        lbStatusEl.className = "error";
+      }
+    }
+
+
       const subtitleEl = document.getElementById("page-subtitle");
       try {
         const listRes = await fetch(WORKER_URL + "/api/v1/results");
@@ -579,6 +661,7 @@
     loadCountries();
     loadCurrentTrack();
     loadSessionList();
+    loadLeaderboard();
 
     document.getElementById("copyright").textContent =
       `© ${new Date().getFullYear()} GT3forc3.com`;

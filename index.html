@@ -247,7 +247,9 @@
 
     #status {
       color: #999;
-      padding: 20px 0;
+    }
+    #status:not(:empty) {
+      padding: 12px 0;
     }
     .error {
       color: #ff8080;
@@ -340,7 +342,7 @@
   <div id="leaderboard-frame" class="leaderboard-frame"></div>
 
   <div class="section-box">
-    <h2 class="section-title">Where Our Drivers Race From</h2>
+    <h2 class="section-title">🌍 Where Our Drivers Race From</h2>
     <div class="section-subtitle">Countries represented across recent sessions</div>
     <div id="status"></div>
     <div id="content"></div>

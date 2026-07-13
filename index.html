@@ -423,6 +423,9 @@
         const seenPlayers = new Set();
         const nationCounts = {};
 
+        // Nation codes to exclude entirely from the country grid.
+        const EXCLUDED_NATIONS = new Set(["REU", "RUS"]);
+
         detailResults.forEach(result => {
           if (result.status !== "fulfilled") return;
           const drivers = result.value.drivers || [];
@@ -432,7 +435,7 @@
             seenPlayers.add(key);
 
             const nation = driver.nation;
-            if (!nation) return;
+            if (!nation || EXCLUDED_NATIONS.has(nation)) return;
             nationCounts[nation] = (nationCounts[nation] || 0) + 1;
           });
         });

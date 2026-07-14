@@ -108,10 +108,14 @@
       z-index: 1;
     }
     .lb-pos {
-      width: 40px;
+      width: 50px;
       text-align: center;
       opacity: 0.6;
       font-weight: 700;
+      white-space: nowrap;
+    }
+    .lb-medal {
+      margin-right: 4px;
     }
     .lb-nickname {
       opacity: 0.5;
@@ -273,7 +277,7 @@
       border-collapse: collapse;
     }
     th, td {
-      padding: 7px 8px;
+      padding: 9px 8px;
       border-bottom: 1px solid #333;
       text-align: left;
       font-size: 13px;
@@ -598,10 +602,13 @@
       `;
       const tbody = table.querySelector("tbody");
 
+      const MEDALS = { 1: "🥇", 2: "🥈", 3: "🥉" };
+
       entries.forEach(({ rank, row }) => {
         const tr = document.createElement("tr");
+        const medal = MEDALS[rank] ? `<span class="lb-medal">${MEDALS[rank]}</span>` : "";
         tr.innerHTML = `
-          <td class="lb-pos">${rank}</td>
+          <td class="lb-pos">${medal}${rank}</td>
           <td><div class="lb-driver-name">${row.FullName || "—"}</div></td>
           <td>${row.CarName || "—"}</td>
           <td class="lb-best">${row.BestLap || "-"}</td>

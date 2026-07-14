@@ -226,6 +226,10 @@
       text-transform: uppercase;
       letter-spacing: 0.03em;
     }
+    .country-count-number {
+      color: #e63946;
+      font-weight: 700;
+    }
 
     .section-box {
       background: #202020;
@@ -471,7 +475,7 @@
 
       const subtitleEl = document.getElementById("country-subtitle");
       if (subtitleEl) {
-        subtitleEl.textContent = `🌍 ${nations.length} Countries Represented`;
+        subtitleEl.innerHTML = `🌍 <span class="country-count-number">${nations.length}</span> Countries Represented`;
       }
 
       const grid = document.createElement("div");

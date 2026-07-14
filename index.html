@@ -420,92 +420,126 @@
       return `https://www.hltv.org/img/static/flags/30x20/${iso2}.gif`;
     }
 
-    async function loadCountries() {
-      statusEl.textContent = "Loading driver data...";
-      statusEl.className = "";
+    const COUNTRY_CACHE_KEY = "gt3_country_data_v1";
+    const COUNTRY_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+    function renderCountryData(nationCounts) {
+      const nations = Object.entries(nationCounts).sort((a, b) => b[1] - a[1]);
+
+      if (nations.length === 0) {
+        statusEl.textContent = "No driver nation data found.";
+        return;
+      }
+
+      statusEl.textContent = "";
       contentEl.innerHTML = "";
 
-      try {
-        const listRes = await fetch(WORKER_URL + "/api/v1/results");
-        if (!listRes.ok) throw new Error("Server returned " + listRes.status);
-        const listData = await listRes.json();
+      const stats = document.createElement("div");
+      stats.className = "country-stats";
+      stats.innerHTML = `
+        <div class="country-stats-numbers">Drivers across <strong>${nations.length}</strong> countries</div>
+      `;
+      contentEl.appendChild(stats);
 
-        const sessions = (listData.results || [])
-          .slice()
-          .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      const grid = document.createElement("div");
+      grid.className = "country-grid";
 
-        if (sessions.length === 0) {
-          statusEl.textContent = "No session data found.";
-          return;
-        }
-
-        const detailResults = await Promise.allSettled(
-          sessions.map(s => fetch(WORKER_URL + s.download_url).then(r => r.json()))
-        );
-
-        // Dedupe drivers by player_id, tally by nation
-        const seenPlayers = new Set();
-        const nationCounts = {};
-
-        // Nation codes to exclude entirely from the country grid.
-        const EXCLUDED_NATIONS = new Set(["REU", "RUS", "ATA", "GLP", "CUW", "UMI", "MTQ", "IRN", "BES"]);
-
-        detailResults.forEach(result => {
-          if (result.status !== "fulfilled") return;
-          const drivers = result.value.drivers || [];
-          drivers.forEach(driver => {
-            const key = driver.player_id || `${driver.first_name}-${driver.last_name}`;
-            if (seenPlayers.has(key)) return;
-            seenPlayers.add(key);
-
-            const nation = driver.nation;
-            if (!nation || EXCLUDED_NATIONS.has(nation)) return;
-            nationCounts[nation] = (nationCounts[nation] || 0) + 1;
-          });
-        });
-
-        const nations = Object.entries(nationCounts).sort((a, b) => b[1] - a[1]);
-
-        if (nations.length === 0) {
-          statusEl.textContent = "No driver nation data found.";
-          return;
-        }
-
-        statusEl.textContent = "";
-
-        const totalDrivers = nations.reduce((sum, [, count]) => sum + count, 0);
-
-        const stats = document.createElement("div");
-        stats.className = "country-stats";
-        stats.innerHTML = `
-          <div class="country-stats-numbers">Drivers across <strong>${nations.length}</strong> countries</div>
+      nations.forEach(([code, count]) => {
+        const card = document.createElement("div");
+        card.className = "country-card";
+        const flagUrl = flagImgFor(code);
+        const flagHtml = flagUrl
+          ? `<img class="country-flag" src="${flagUrl}" alt="${code}" onerror="this.style.display='none'">`
+          : `<div class="country-flag" style="display:flex;align-items:center;justify-content:center;background:#333;font-size:10px;">${code}</div>`;
+        card.innerHTML = `
+          ${flagHtml}
+          <div class="country-info">
+            <div class="country-code">${code}</div>
+            <div class="country-count">${count}</div>
+          </div>
         `;
-        contentEl.appendChild(stats);
+        grid.appendChild(card);
+      });
 
-        const grid = document.createElement("div");
-        grid.className = "country-grid";
+      contentEl.appendChild(grid);
+    }
 
-        nations.forEach(([code, count]) => {
-          const card = document.createElement("div");
-          card.className = "country-card";
-          const flagUrl = flagImgFor(code);
-          const flagHtml = flagUrl
-            ? `<img class="country-flag" src="${flagUrl}" alt="${code}" onerror="this.style.display='none'">`
-            : `<div class="country-flag" style="display:flex;align-items:center;justify-content:center;background:#333;font-size:10px;">${code}</div>`;
-          card.innerHTML = `
-            ${flagHtml}
-            <div class="country-info">
-              <div class="country-code">${code}</div>
-              <div class="country-count">${count}</div>
-            </div>
-          `;
-          grid.appendChild(card);
+    async function fetchCountryData() {
+      const listRes = await fetch(WORKER_URL + "/api/v1/results");
+      if (!listRes.ok) throw new Error("Server returned " + listRes.status);
+      const listData = await listRes.json();
+
+      const sessions = (listData.results || [])
+        .slice()
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+      if (sessions.length === 0) return {};
+
+      const detailResults = await Promise.allSettled(
+        sessions.map(s => fetch(WORKER_URL + s.download_url).then(r => r.json()))
+      );
+
+      // Dedupe drivers by player_id, tally by nation
+      const seenPlayers = new Set();
+      const nationCounts = {};
+
+      // Nation codes to exclude entirely from the country grid.
+      const EXCLUDED_NATIONS = new Set(["REU", "RUS", "ATA", "GLP", "CUW", "UMI", "MTQ", "IRN", "BES"]);
+
+      detailResults.forEach(result => {
+        if (result.status !== "fulfilled") return;
+        const drivers = result.value.drivers || [];
+        drivers.forEach(driver => {
+          const key = driver.player_id || `${driver.first_name}-${driver.last_name}`;
+          if (seenPlayers.has(key)) return;
+          seenPlayers.add(key);
+
+          const nation = driver.nation;
+          if (!nation || EXCLUDED_NATIONS.has(nation)) return;
+          nationCounts[nation] = (nationCounts[nation] || 0) + 1;
         });
+      });
 
-        contentEl.appendChild(grid);
+      return nationCounts;
+    }
+
+    async function loadCountries() {
+      // Instant paint from cache if we have one, regardless of age
+      let cached = null;
+      try {
+        const raw = localStorage.getItem(COUNTRY_CACHE_KEY);
+        if (raw) cached = JSON.parse(raw);
       } catch (err) {
-        statusEl.textContent = "Error loading driver data: " + err.message;
-        statusEl.className = "error";
+        // Ignore corrupt cache
+      }
+
+      if (cached && cached.nationCounts) {
+        renderCountryData(cached.nationCounts);
+      } else {
+        statusEl.textContent = "Loading driver data...";
+        statusEl.className = "";
+      }
+
+      const isStale = !cached || (Date.now() - cached.timestamp > COUNTRY_CACHE_TTL_MS);
+      if (!isStale) return; // cache is fresh enough, skip the network entirely
+
+      try {
+        const nationCounts = await fetchCountryData();
+        renderCountryData(nationCounts);
+        try {
+          localStorage.setItem(COUNTRY_CACHE_KEY, JSON.stringify({
+            nationCounts,
+            timestamp: Date.now()
+          }));
+        } catch (err) {
+          // Storage full or unavailable — not critical, just skip caching
+        }
+      } catch (err) {
+        // If we already rendered from cache, fail silently in the background.
+        if (!cached) {
+          statusEl.textContent = "Error loading driver data: " + err.message;
+          statusEl.className = "error";
+        }
       }
     }
 

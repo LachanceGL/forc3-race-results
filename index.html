@@ -56,6 +56,25 @@
     }
     .discord-link:hover { background: #4752c4; }
 
+    .leaderboard-search-input {
+      width: 100%;
+      max-width: 340px;
+      background: #2a2a2a;
+      border: 1px solid #3a3a3a;
+      color: #eee;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 14px;
+      margin-bottom: 12px;
+      outline: none;
+    }
+    .leaderboard-search-input:focus {
+      border-color: #e63946;
+    }
+    .leaderboard-search-input::placeholder {
+      color: #777;
+    }
+
     .leaderboard-server-name {
       color: #999;
       font-size: 13px;
@@ -336,6 +355,11 @@
     <a class="leaderboard-tab" href="#spa" data-track="spa">Spa-Francorchamps</a>
   </div>
   <div class="leaderboard-server-name" id="leaderboard-server-name"></div>
+  <input
+    type="text"
+    id="leaderboard-search"
+    class="leaderboard-search-input"
+    placeholder="Search drivers, cars, or dates...">
   <div id="leaderboard-status"></div>
   <div id="leaderboard-frame" class="leaderboard-frame"></div>
 
@@ -558,9 +582,11 @@
       "5:49.692": "Cheater, will be removed"
     };
 
-    function renderLeaderboardRows(rows) {
-      const cleanRows = rows.filter(row => !isFlagged(row));
+    // Holds the currently displayed track's ranked, cheater-filtered entries,
+    // so the search box can filter/re-render instantly without re-fetching.
+    let currentLeaderboardEntries = [];
 
+    function buildLeaderboardTable(entries) {
       const table = document.createElement("table");
       table.innerHTML = `
         <thead>
@@ -576,10 +602,10 @@
       `;
       const tbody = table.querySelector("tbody");
 
-      cleanRows.forEach((row, i) => {
+      entries.forEach(({ rank, row }) => {
         const tr = document.createElement("tr");
         tr.innerHTML = `
-          <td class="lb-pos">${i + 1}</td>
+          <td class="lb-pos">${rank}</td>
           <td><div class="lb-driver-name">${row.FullName || "—"}</div></td>
           <td>${row.CarName || "—"}</td>
           <td class="lb-best">${row.BestLap || "-"}</td>
@@ -588,8 +614,46 @@
         tbody.appendChild(tr);
       });
 
+      if (entries.length === 0) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td colspan="5" style="text-align:center; color:#999; padding:20px;">No results match your search.</td>`;
+        tbody.appendChild(tr);
+      }
+
       return table;
     }
+
+    function renderLeaderboardRows(rows) {
+      const cleanRows = rows.filter(row => !isFlagged(row));
+      currentLeaderboardEntries = cleanRows.map((row, i) => ({ rank: i + 1, row }));
+
+      const searchInput = document.getElementById("leaderboard-search");
+      if (searchInput) searchInput.value = "";
+
+      return buildLeaderboardTable(currentLeaderboardEntries);
+    }
+
+    function applyLeaderboardSearch() {
+      const searchInput = document.getElementById("leaderboard-search");
+      const query = (searchInput.value || "").trim().toLowerCase();
+      const lbFrameEl = document.getElementById("leaderboard-frame");
+
+      if (!query) {
+        lbFrameEl.innerHTML = "";
+        lbFrameEl.appendChild(buildLeaderboardTable(currentLeaderboardEntries));
+        return;
+      }
+
+      const filtered = currentLeaderboardEntries.filter(({ row }) => {
+        const haystack = `${row.FullName || ""} ${row.CarName || ""} ${row.SessionDate || ""} ${row.SessionType || ""}`.toLowerCase();
+        return haystack.includes(query);
+      });
+
+      lbFrameEl.innerHTML = "";
+      lbFrameEl.appendChild(buildLeaderboardTable(filtered));
+    }
+
+    document.getElementById("leaderboard-search").addEventListener("input", applyLeaderboardSearch);
 
     async function loadLeaderboard(track) {
       activeTrack = track;

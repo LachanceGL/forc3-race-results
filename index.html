@@ -578,10 +578,9 @@
 
       cleanRows.forEach((row, i) => {
         const tr = document.createElement("tr");
-        const nickname = row.Nickname ? `<div class="lb-nickname">${row.Nickname}</div>` : "";
         tr.innerHTML = `
           <td class="lb-pos">${i + 1}</td>
-          <td><div class="lb-driver-name">${row.FullName || "—"}</div>${nickname}</td>
+          <td><div class="lb-driver-name">${row.FullName || "—"}</div></td>
           <td>${row.CarName || "—"}</td>
           <td class="lb-best">${row.BestLap || "-"}</td>
           <td class="lb-session">${row.SessionType || ""}<br>${row.SessionDate || ""}</td>

@@ -5,16 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>GT3FORC3.COM / Sim Racing Community</title>
   <style>
+    html {
+      background-color: #1a1a1a;
+    }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background-color: #1a1a1a;
-      background-image:
-        linear-gradient(180deg, rgba(26,26,26,0.94) 0%, rgba(26,26,26,0.97) 100%),
-        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='700' viewBox='0 0 900 700'%3E%3Cpath d='M50 650 C 150 600, 120 500, 220 460 C 340 410, 300 300, 420 260 C 520 230, 480 130, 600 100 C 700 75, 760 130, 850 90' stroke='%23444' stroke-width='3' fill='none' opacity='0.35'/%3E%3Cpath d='M20 500 C 100 470, 160 380, 260 360 C 380 335, 360 220, 480 190 C 580 165, 620 250, 720 220 C 800 195, 820 300, 890 260' stroke='%23444' stroke-width='2' fill='none' opacity='0.22'/%3E%3Cpath d='M0 200 C 80 180, 140 240, 240 210 C 340 180, 380 90, 500 70 C 600 55, 660 110, 780 80' stroke='%23444' stroke-width='2' fill='none' opacity='0.18'/%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: top center;
-      background-size: cover;
-      background-attachment: fixed;
       color: #eee;
       padding: 20px;
       max-width: 900px;
@@ -129,7 +125,7 @@
     }
     .lb-session {
       text-align: right;
-      opacity: 0.6;
+      opacity: 0.4;
       font-size: 12px;
     }
     .lb-flag {
@@ -609,7 +605,7 @@
           <td><div class="lb-driver-name">${row.FullName || "—"}</div></td>
           <td>${row.CarName || "—"}</td>
           <td class="lb-best">${row.BestLap || "-"}</td>
-          <td class="lb-session">${row.SessionType || ""}<br>${row.SessionDate || ""}</td>
+          <td class="lb-session">${row.SessionDate || ""}</td>
         `;
         tbody.appendChild(tr);
       });

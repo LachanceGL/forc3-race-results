@@ -473,7 +473,7 @@
       const nations = Object.entries(nationCounts).sort((a, b) => b[1] - a[1]);
 
       if (nations.length === 0) {
-        statusEl.textContent = "No driver nation data found.";
+        statusEl.textContent = "Couldn't load driver data — check your connection and try reloading.";
         return;
       }
 
@@ -508,6 +508,22 @@
       contentEl.appendChild(grid);
     }
 
+    async function fetchWithRetry(url, attempts = 2) {
+      let lastError;
+      for (let i = 0; i < attempts; i++) {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) throw new Error("Server returned " + res.status);
+          return await res.json();
+        } catch (err) {
+          lastError = err;
+          // Brief pause before retrying, gives a flaky mobile connection a moment to recover
+          if (i < attempts - 1) await new Promise(r => setTimeout(r, 400));
+        }
+      }
+      throw lastError;
+    }
+
     async function fetchCountryData() {
       const listRes = await fetch(WORKER_URL + "/api/v1/results");
       if (!listRes.ok) throw new Error("Server returned " + listRes.status);
@@ -519,9 +535,20 @@
 
       if (sessions.length === 0) return {};
 
-      const detailResults = await Promise.allSettled(
-        sessions.map(s => fetch(WORKER_URL + s.download_url).then(r => r.json()))
-      );
+      // Fetch in small batches rather than all at once — mobile browsers
+      // (especially iOS Safari/Chrome) can silently fail large numbers of
+      // simultaneous requests to the same host. Each request also gets a
+      // retry, since flaky mobile connections can drop individual requests
+      // even within a small batch.
+      const BATCH_SIZE = 12;
+      const detailResults = [];
+      for (let i = 0; i < sessions.length; i += BATCH_SIZE) {
+        const batch = sessions.slice(i, i + BATCH_SIZE);
+        const batchResults = await Promise.allSettled(
+          batch.map(s => fetchWithRetry(WORKER_URL + s.download_url))
+        );
+        detailResults.push(...batchResults);
+      }
 
       // Dedupe drivers by player_id, tally by nation
       const seenPlayers = new Set();

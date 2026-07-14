@@ -630,8 +630,11 @@
     }
 
     function renderLeaderboardRows(rows) {
+      const LEADERBOARD_MAX_ENTRIES = 200;
       const cleanRows = rows.filter(row => !isFlagged(row));
-      currentLeaderboardEntries = cleanRows.map((row, i) => ({ rank: i + 1, row }));
+      currentLeaderboardEntries = cleanRows
+        .map((row, i) => ({ rank: i + 1, row }))
+        .slice(0, LEADERBOARD_MAX_ENTRIES);
 
       const searchInput = document.getElementById("leaderboard-search");
       if (searchInput) searchInput.value = "";

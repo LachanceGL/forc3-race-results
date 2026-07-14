@@ -330,16 +330,6 @@
     </a>
   </div>
 
-  <div class="section-box">
-    <h2 class="section-title" style="border-top:none; padding-top:0;">🏆 GT3 FORC3 LEADERBOARD</h2>
-    <div class="section-subtitle">Official rankings — flagged drivers removed</div>
-    <div class="leaderboard-tabs">
-      <a class="leaderboard-tab own-leaderboard-tab active" href="#own-nordschleife" data-own-track="nordschleife">Nordschleife</a>
-    </div>
-    <div id="own-leaderboard-status"></div>
-    <div id="own-leaderboard-frame" class="leaderboard-frame"></div>
-  </div>
-
   <img class="game-logo" src="https://cdn2.steamgriddb.com/logo_thumb/fc01a2102f0e61c902da69e52aac5d0d.png" alt="Assetto Corsa EVO">
   <div class="leaderboard-tabs">
     <a class="leaderboard-tab active" href="#nordschleife" data-track="nordschleife">Nordschleife</a>
@@ -569,6 +559,8 @@
     };
 
     function renderLeaderboardRows(rows) {
+      const cleanRows = rows.filter(row => !isFlagged(row));
+
       const table = document.createElement("table");
       table.innerHTML = `
         <thead>
@@ -584,17 +576,14 @@
       `;
       const tbody = table.querySelector("tbody");
 
-      rows.forEach(row => {
+      cleanRows.forEach((row, i) => {
         const tr = document.createElement("tr");
         const nickname = row.Nickname ? `<div class="lb-nickname">${row.Nickname}</div>` : "";
-        const flagNote = FLAGGED_DRIVERS[row.FullName] || FLAGGED_LAP_TIMES[row.BestLap];
-        const flagHtml = flagNote ? `<div class="lb-flag">${flagNote}</div>` : "";
-        const bestLapClass = flagNote ? "lb-best lb-flagged-time" : "lb-best";
         tr.innerHTML = `
-          <td class="lb-pos">${row.Position}</td>
-          <td><div class="lb-driver-name">${row.FullName || "—"}</div>${nickname}${flagHtml}</td>
+          <td class="lb-pos">${i + 1}</td>
+          <td><div class="lb-driver-name">${row.FullName || "—"}</div>${nickname}</td>
           <td>${row.CarName || "—"}</td>
-          <td class="${bestLapClass}">${row.BestLap || "-"}</td>
+          <td class="lb-best">${row.BestLap || "-"}</td>
           <td class="lb-session">${row.SessionType || ""}<br>${row.SessionDate || ""}</td>
         `;
         tbody.appendChild(tr);
@@ -645,111 +634,9 @@
       }
     }
 
-    // ---- GT3 FORC3's own curated leaderboard ----
-    // Unlike the raw AC EVO leaderboard above, flagged cheaters are removed
-    // entirely here (not just badged), and positions are re-ranked to close the gap.
-    const OWN_LEADERBOARDS = {
-      nordschleife: {
-        workerPrefix: "/server1",
-        shareKey: "1bb39366-c808-4171-94bb-af286353e2f6"
-      }
-    };
-
-    const ownLeaderboardCache = {};
-    let activeOwnTrack = "nordschleife";
-
     function isFlagged(row) {
       return Boolean(FLAGGED_DRIVERS[row.FullName] || FLAGGED_LAP_TIMES[row.BestLap]);
     }
-
-    function renderOwnLeaderboardRows(rows) {
-      const cleanRows = rows.filter(row => !isFlagged(row));
-
-      const table = document.createElement("table");
-      table.innerHTML = `
-        <thead>
-          <tr>
-            <th class="lb-pos">#</th>
-            <th>Driver</th>
-            <th>Car</th>
-            <th class="lb-best">Best Lap</th>
-            <th class="lb-session">Session</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      `;
-      const tbody = table.querySelector("tbody");
-
-      cleanRows.forEach((row, i) => {
-        const tr = document.createElement("tr");
-        const nickname = row.Nickname ? `<div class="lb-nickname">${row.Nickname}</div>` : "";
-        tr.innerHTML = `
-          <td class="lb-pos">${i + 1}</td>
-          <td><div class="lb-driver-name">${row.FullName || "—"}</div>${nickname}</td>
-          <td>${row.CarName || "—"}</td>
-          <td class="lb-best">${row.BestLap || "-"}</td>
-          <td class="lb-session">${row.SessionType || ""}<br>${row.SessionDate || ""}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-
-      return table;
-    }
-
-    async function loadOwnLeaderboard(track) {
-      activeOwnTrack = track;
-      const statusEl2 = document.getElementById("own-leaderboard-status");
-      const frameEl2 = document.getElementById("own-leaderboard-frame");
-      const config = OWN_LEADERBOARDS[track];
-      if (!config) return;
-
-      if (ownLeaderboardCache[track]) {
-        statusEl2.textContent = "";
-        frameEl2.innerHTML = "";
-        frameEl2.appendChild(renderOwnLeaderboardRows(ownLeaderboardCache[track]));
-        return;
-      }
-
-      statusEl2.textContent = "Loading leaderboard...";
-      statusEl2.className = "";
-      frameEl2.innerHTML = "";
-
-      try {
-        const res = await fetch(WORKER_URL + `${config.workerPrefix}/leaderboards/embed/${config.shareKey}/rows`);
-        if (!res.ok) throw new Error("Server returned " + res.status);
-        const rows = await res.json();
-
-        if (!rows || rows.length === 0) {
-          statusEl2.textContent = "No leaderboard results found.";
-          return;
-        }
-
-        ownLeaderboardCache[track] = rows;
-        if (activeOwnTrack !== track) return;
-
-        statusEl2.textContent = "";
-        frameEl2.appendChild(renderOwnLeaderboardRows(rows));
-      } catch (err) {
-        if (activeOwnTrack !== track) return;
-        statusEl2.textContent = "Error loading leaderboard: " + err.message;
-        statusEl2.className = "error";
-      }
-    }
-
-    function switchToOwnTrack(track) {
-      if (!OWN_LEADERBOARDS[track]) return;
-      document.querySelectorAll(".own-leaderboard-tab").forEach(t => {
-        t.classList.toggle("active", t.dataset.ownTrack === track);
-      });
-      loadOwnLeaderboard(track);
-    }
-
-    window.addEventListener("hashchange", () => {
-      const hash = window.location.hash.replace("#", "").replace("own-", "");
-      if (window.location.hash.startsWith("#own-") && OWN_LEADERBOARDS[hash]) {
-        switchToOwnTrack(hash);
-      }
-    });
 
     async function loadServerName(track) {
       const labelEl = document.getElementById("leaderboard-server-name");
@@ -814,7 +701,6 @@
 
     loadCountries();
     loadLeaderboard(activeTrack);
-    loadOwnLeaderboard(activeOwnTrack);
 
     document.getElementById("copyright").textContent =
       `© ${new Date().getFullYear()} GT3FORC3.COM`;

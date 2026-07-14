@@ -117,6 +117,9 @@
     .lb-medal {
       margin-right: 4px;
     }
+    .lb-driver-name {
+      font-weight: 700;
+    }
     .lb-nickname {
       opacity: 0.5;
       font-size: 12px;
@@ -606,7 +609,7 @@
 
       entries.forEach(({ rank, row }) => {
         const tr = document.createElement("tr");
-        const medal = MEDALS[rank] ? `<span class="lb-medal">${MEDALS[rank]}</span>` : "";
+        const medal = `<span class="lb-medal">${MEDALS[rank] || "🏁"}</span>`;
         tr.innerHTML = `
           <td class="lb-pos">${medal}${rank}</td>
           <td><div class="lb-driver-name">${row.FullName || "—"}</div></td>

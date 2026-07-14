@@ -108,6 +108,13 @@
       0%, 100% { opacity: 1; }
       50% { opacity: 0.3; }
     }
+    .live-badge.offline {
+      color: #ff6b6b;
+    }
+    .live-badge.offline .live-dot {
+      background: #ff6b6b;
+      animation: none;
+    }
 
     .leaderboard-frame {
       width: 100%;
@@ -743,7 +750,9 @@
       if (serverNameCache[track]) {
         if (activeTrack === track) {
           labelEl.textContent = serverNameCache[track];
+          liveBadgeEl.classList.remove("offline");
           liveBadgeEl.classList.add("visible");
+          liveBadgeEl.innerHTML = '<span class="live-dot"></span>Online';
         }
         return;
       }
@@ -757,7 +766,7 @@
         const sessions = (listData.results || []).slice().sort(
           (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
         );
-        if (sessions.length === 0) return;
+        if (sessions.length === 0) throw new Error("No sessions found");
 
         const latestRes = await fetch(WORKER_URL + `${config.workerPrefix}${sessions[0].download_url}`);
         if (!latestRes.ok) throw new Error("Server returned " + latestRes.status);
@@ -767,11 +776,18 @@
           serverNameCache[track] = latest.server_name;
           if (activeTrack === track) {
             labelEl.textContent = latest.server_name;
+            liveBadgeEl.classList.remove("offline");
             liveBadgeEl.classList.add("visible");
+            liveBadgeEl.innerHTML = '<span class="live-dot"></span>Online';
           }
         }
       } catch (err) {
-        // Silently leave the label blank if this fails, and keep the Live badge hidden
+        // Genuinely show an offline state rather than just hiding the badge,
+        // so visitors can tell "server is down" apart from "still loading".
+        if (activeTrack === track) {
+          liveBadgeEl.classList.add("visible", "offline");
+          liveBadgeEl.innerHTML = '<span class="live-dot"></span>Offline';
+        }
       }
     }
 
@@ -780,8 +796,9 @@
       document.querySelectorAll(".leaderboard-tab").forEach(t => {
         t.classList.toggle("active", t.dataset.track === track);
       });
+      const liveBadgeEl = document.getElementById("server-live-badge");
       document.getElementById("leaderboard-server-name-text").textContent = serverNameCache[track] || "";
-      document.getElementById("server-live-badge").classList.toggle("visible", Boolean(serverNameCache[track]));
+      liveBadgeEl.classList.remove("visible", "offline");
       loadLeaderboard(track);
       loadServerName(track);
     }

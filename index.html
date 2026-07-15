@@ -517,7 +517,7 @@
       return `https://www.hltv.org/img/static/flags/30x20/${iso2}.gif`;
     }
 
-    const COUNTRY_CACHE_KEY = "gt3_country_data_v2";
+    const COUNTRY_CACHE_KEY = "gt3_country_data_v3";
     const COUNTRY_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
     function renderCountryData(nationCounts) {
@@ -575,40 +575,17 @@
       throw lastError;
     }
 
-    async function fetchCountryData() {
-      const listRes = await fetch(WORKER_URL + "/api/v1/results");
-      if (!listRes.ok) throw new Error("Server returned " + listRes.status);
-      const listData = await listRes.json();
+    // Nation codes to exclude entirely from the country grid.
+    const EXCLUDED_NATIONS = new Set(["REU", "RUS", "ATA", "GLP", "CUW", "UMI", "MTQ", "IRN", "BES"]);
 
-      const sessions = (listData.results || [])
-        .slice()
-        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
-      if (sessions.length === 0) return { nationCounts: {}, nameToNation: {} };
-
-      // Fetch one session at a time, sequentially, with a short gap between
-      // requests. A batch of parallel requests was failing entirely on some
-      // mobile networks/browsers even with retries — going fully sequential
-      // removes any "burst" pattern that a carrier, router, or content
-      // blocker might be flagging.
-      const detailResults = [];
-      for (const session of sessions) {
-        try {
-          const value = await fetchWithRetry(WORKER_URL + session.download_url, 3);
-          detailResults.push({ status: "fulfilled", value });
-        } catch (err) {
-          detailResults.push({ status: "rejected", reason: err });
-        }
-        await new Promise(r => setTimeout(r, 30));
-      }
-
-      // Dedupe drivers by player_id, tally by nation
+    // Fetches and tallies driver/nation data for ONE track's session pool.
+    // Kept per-track (rather than one combined fetch across every track) so
+    // that adding more tracks in the future doesn't make every visitor pay
+    // for fetching every track's full session history — a track's data is
+    // only ever fetched when that track is actually viewed.
+    async function fetchTrackDriverData(workerPrefix) {
       const seenPlayers = new Set();
       const nationCounts = {};
-
-      // Nation codes to exclude entirely from the country grid.
-      const EXCLUDED_NATIONS = new Set(["REU", "RUS", "ATA", "GLP", "CUW", "UMI", "MTQ", "IRN", "BES"]);
-
       // Best-effort "First Last" -> nation lookup, used to show a flag next
       // to a driver's name on the leaderboard. The leaderboard's own data
       // source (/rows) doesn't include nation at all, so this is the only
@@ -616,9 +593,30 @@
       // field both sources share. Not guaranteed unique or complete.
       const nameToNation = {};
 
-      detailResults.forEach(result => {
-        if (result.status !== "fulfilled") return;
-        const drivers = result.value.drivers || [];
+      const listRes = await fetch(WORKER_URL + workerPrefix + "/api/v1/results");
+      if (!listRes.ok) throw new Error("Server returned " + listRes.status);
+      const listData = await listRes.json();
+
+      const sessions = (listData.results || [])
+        .slice()
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+      // Fetch one session at a time, sequentially, with a short gap between
+      // requests. A batch of parallel requests was failing entirely on some
+      // mobile networks/browsers even with retries — going fully sequential
+      // removes any "burst" pattern that a carrier, router, or content
+      // blocker might be flagging.
+      for (const session of sessions) {
+        let value;
+        try {
+          value = await fetchWithRetry(WORKER_URL + workerPrefix + session.download_url, 3);
+        } catch (err) {
+          await new Promise(r => setTimeout(r, 30));
+          continue;
+        }
+        await new Promise(r => setTimeout(r, 30));
+
+        const drivers = value.drivers || [];
         drivers.forEach(driver => {
           const key = driver.player_id || `${driver.first_name}-${driver.last_name}`;
           const nation = driver.nation;
@@ -635,29 +633,66 @@
           if (!nation || EXCLUDED_NATIONS.has(nation)) return;
           nationCounts[nation] = (nationCounts[nation] || 0) + 1;
         });
-      });
+      }
 
       return { nationCounts, nameToNation };
     }
 
-    // Populated once country/driver data has loaded (from cache or network).
-    // Used to show a flag next to a driver's name on the leaderboard.
+    // Holds each track's fetched nation data once loaded, keyed by track id
+    // (e.g. "nordschleife"). Used to recompute the combined country grid and
+    // driver flag lookup as more tracks get loaded over time.
+    const loadedTrackData = {};
+
+    // Merged across every track loaded so far. Used to show a flag next to
+    // a driver's name on the leaderboard.
     let driverNationMap = {};
 
-    async function loadCountries() {
-      // Instant paint from cache if we have one, regardless of age
+    // Recomputes the combined "Drivers Around The World" grid and the
+    // merged flag lookup from whatever tracks have been loaded so far, then
+    // re-renders both. A driver who has raced more than one loaded track
+    // will be counted once per track here (each track dedupes its own
+    // drivers, but there's no cross-track identity check) — a minor
+    // over-count, traded for keeping each track's fetch independent.
+    function recomputeAndRenderTrackData() {
+      const combinedCounts = {};
+      const combinedNameToNation = {};
+
+      Object.values(loadedTrackData).forEach(({ nationCounts, nameToNation }) => {
+        Object.entries(nationCounts).forEach(([code, count]) => {
+          combinedCounts[code] = (combinedCounts[code] || 0) + count;
+        });
+        Object.entries(nameToNation).forEach(([name, nation]) => {
+          if (!(name in combinedNameToNation)) combinedNameToNation[name] = nation;
+        });
+      });
+
+      renderCountryData(combinedCounts);
+      driverNationMap = combinedNameToNation;
+      refreshLeaderboardFlags();
+    }
+
+    // Loads a single track's driver/nation data (from cache if fresh, else
+    // network), merges it in, and re-renders. Safe to call repeatedly for
+    // the same track — it no-ops if that track is already loaded in memory.
+    async function ensureTrackDataLoaded(trackId) {
+      if (loadedTrackData[trackId]) return; // already loaded this session
+
+      const config = LEADERBOARDS[trackId];
+      if (!config) return;
+
+      const cacheKey = COUNTRY_CACHE_KEY + "_" + trackId;
+
       let cached = null;
       try {
-        const raw = localStorage.getItem(COUNTRY_CACHE_KEY);
+        const raw = localStorage.getItem(cacheKey);
         if (raw) cached = JSON.parse(raw);
       } catch (err) {
         // Ignore corrupt cache
       }
 
       if (cached && cached.nationCounts) {
-        renderCountryData(cached.nationCounts);
-        driverNationMap = cached.nameToNation || {};
-        refreshLeaderboardFlags();
+        loadedTrackData[trackId] = cached;
+        recomputeAndRenderTrackData();
       } else {
         statusEl.textContent = "Loading driver data... this can take a moment on first visit.";
         statusEl.className = "";
@@ -667,12 +702,11 @@
       if (!isStale) return; // cache is fresh enough, skip the network entirely
 
       try {
-        const { nationCounts, nameToNation } = await fetchCountryData();
-        renderCountryData(nationCounts);
-        driverNationMap = nameToNation;
-        refreshLeaderboardFlags();
+        const { nationCounts, nameToNation } = await fetchTrackDriverData(config.workerPrefix);
+        loadedTrackData[trackId] = { nationCounts, nameToNation };
+        recomputeAndRenderTrackData();
         try {
-          localStorage.setItem(COUNTRY_CACHE_KEY, JSON.stringify({
+          localStorage.setItem(cacheKey, JSON.stringify({
             nationCounts,
             nameToNation,
             timestamp: Date.now()
@@ -918,6 +952,7 @@
       liveBadgeEl.classList.remove("visible", "offline");
       loadLeaderboard(track);
       loadServerName(track);
+      ensureTrackDataLoaded(track);
     }
 
     // Clicking a tab just changes the URL hash (native <a> behavior);
@@ -939,7 +974,7 @@
     document.getElementById("leaderboard-server-name-text").textContent = "";
     loadServerName(activeTrack);
 
-    loadCountries();
+    ensureTrackDataLoaded(activeTrack);
     loadLeaderboard(activeTrack);
 
     document.getElementById("copyright").textContent =

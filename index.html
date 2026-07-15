@@ -750,6 +750,12 @@
     const serverNameCache = {};
     let activeTrack = "nordschleife";
 
+    // Incremented every time loadLeaderboard() is called. Lets an in-flight
+    // fetch detect that a newer request has since started (even for the
+    // SAME track, e.g. switching away and back before the first fetch
+    // finished) and bail out instead of rendering stale/duplicate content.
+    let leaderboardRequestId = 0;
+
     // Add a driver's exact FullName here (as it appears in the leaderboard) to flag them.
     // The note text shows under their name and their best lap gets struck through.
     // Remove the entry once they're actually removed from the leaderboard by the server admin.
@@ -861,6 +867,7 @@
 
     async function loadLeaderboard(track) {
       activeTrack = track;
+      const requestId = ++leaderboardRequestId;
       const lbStatusEl = document.getElementById("leaderboard-status");
       const lbFrameEl = document.getElementById("leaderboard-frame");
       const config = LEADERBOARDS[track];
@@ -882,6 +889,10 @@
         if (!res.ok) throw new Error("Server returned " + res.status);
         const rows = await res.json();
 
+        // A newer request (for this track or another) has started since —
+        // discard this one rather than rendering stale/duplicate content.
+        if (requestId !== leaderboardRequestId) return;
+
         if (!rows || rows.length === 0) {
           lbStatusEl.textContent = "No leaderboard results found.";
           return;
@@ -889,13 +900,11 @@
 
         leaderboardCache[track] = rows;
 
-        // Only render if the user hasn't switched tabs while this was loading
-        if (activeTrack !== track) return;
-
         lbStatusEl.textContent = "";
+        lbFrameEl.innerHTML = "";
         lbFrameEl.appendChild(renderLeaderboardRows(rows));
       } catch (err) {
-        if (activeTrack !== track) return;
+        if (requestId !== leaderboardRequestId) return;
         lbStatusEl.textContent = "Error loading leaderboard: " + err.message;
         lbStatusEl.className = "error";
       }

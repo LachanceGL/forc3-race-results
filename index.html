@@ -508,7 +508,7 @@
       return `https://www.hltv.org/img/static/flags/30x20/${iso2}.gif`;
     }
 
-    const COUNTRY_CACHE_KEY = "gt3_country_data_v1";
+    const COUNTRY_CACHE_KEY = "gt3_country_data_v2";
     const COUNTRY_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
     function renderCountryData(nationCounts) {
@@ -615,8 +615,9 @@
           const nation = driver.nation;
 
           const fullName = `${driver.first_name || ""} ${driver.last_name || ""}`.trim();
-          if (fullName && nation && !(fullName in nameToNation)) {
-            nameToNation[fullName] = nation;
+          const nameKey = fullName.toLowerCase();
+          if (nameKey && nation && !(nameKey in nameToNation)) {
+            nameToNation[nameKey] = nation;
           }
 
           if (seenPlayers.has(key)) return;
@@ -736,7 +737,7 @@
         const tr = document.createElement("tr");
         if (rank <= 3) tr.classList.add("lb-podium-row");
         const medal = `<span class="lb-medal">${MEDALS[rank] || "🏁"}</span>`;
-        const nation = row.FullName ? driverNationMap[row.FullName] : null;
+        const nation = row.FullName ? driverNationMap[row.FullName.trim().toLowerCase()] : null;
         const flagUrl = nation ? flagImgFor(nation) : null;
         const flagHtml = flagUrl
           ? `<img class="lb-driver-flag" src="${flagUrl}" alt="${nation}" onerror="this.style.display='none'">`

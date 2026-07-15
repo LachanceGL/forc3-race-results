@@ -171,6 +171,7 @@
     }
     .lb-driver-name {
       font-weight: 700;
+      color: #e63946;
     }
     .lb-driver-flag {
       width: 16px;
@@ -180,6 +181,15 @@
       vertical-align: middle;
       position: relative;
       top: -1px;
+    }
+    .lb-driver-flag-unknown {
+      display: inline-block;
+      width: 16px;
+      height: 11px;
+      line-height: 11px;
+      font-size: 10px;
+      text-align: center;
+      opacity: 0.5;
     }
     .lb-nickname {
       opacity: 0.5;
@@ -741,7 +751,7 @@
         const flagUrl = nation ? flagImgFor(nation) : null;
         const flagHtml = flagUrl
           ? `<img class="lb-driver-flag" src="${flagUrl}" alt="${nation}" onerror="this.style.display='none'">`
-          : "";
+          : (row.FullName ? `<span class="lb-driver-flag lb-driver-flag-unknown" title="Nationality unknown">🌍</span>` : "");
         tr.innerHTML = `
           <td class="lb-pos">${medal}${rank}</td>
           <td><div class="lb-driver-name">${flagHtml}${row.FullName || "—"}</div></td>

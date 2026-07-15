@@ -187,6 +187,9 @@
       opacity: 0.4;
       font-size: 12px;
     }
+    .lb-car {
+      opacity: 0.4;
+    }
     .lb-flag {
       display: inline-block;
       margin-top: 2px;
@@ -341,10 +344,10 @@
       background: #242424;
     }
     .lb-podium-row {
-      background: #2a0e0f;
+      background: #1a0a0a;
     }
     .lb-podium-row:hover {
-      background: #351214;
+      background: #240e0e;
     }
 
     footer {
@@ -705,7 +708,7 @@
         tr.innerHTML = `
           <td class="lb-pos">${medal}${rank}</td>
           <td><div class="lb-driver-name">${row.FullName || "—"}</div></td>
-          <td>${row.CarName || "—"}</td>
+          <td class="lb-car">${row.CarName || "—"}</td>
           <td class="lb-best">${row.BestLap || "-"}</td>
           <td class="lb-session">${row.SessionDate || ""}</td>
         `;

@@ -339,6 +339,12 @@
     .error {
       color: #ff8080;
     }
+    .loading {
+      color: #e63946;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
 
     table {
       width: 100%;
@@ -695,7 +701,7 @@
         recomputeAndRenderTrackData();
       } else {
         statusEl.textContent = "Loading driver data... this can take a moment on first visit.";
-        statusEl.className = "";
+        statusEl.className = "loading";
       }
 
       const isStale = !cached || (Date.now() - cached.timestamp > COUNTRY_CACHE_TTL_MS);

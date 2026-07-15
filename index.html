@@ -172,6 +172,15 @@
     .lb-driver-name {
       font-weight: 700;
     }
+    .lb-driver-flag {
+      width: 16px;
+      height: 11px;
+      border-radius: 2px;
+      margin-right: 6px;
+      vertical-align: middle;
+      position: relative;
+      top: -1px;
+    }
     .lb-nickname {
       opacity: 0.5;
       font-size: 12px;
@@ -566,7 +575,7 @@
         .slice()
         .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
-      if (sessions.length === 0) return {};
+      if (sessions.length === 0) return { nationCounts: {}, nameToNation: {} };
 
       // Fetch one session at a time, sequentially, with a short gap between
       // requests. A batch of parallel requests was failing entirely on some
@@ -591,22 +600,39 @@
       // Nation codes to exclude entirely from the country grid.
       const EXCLUDED_NATIONS = new Set(["REU", "RUS", "ATA", "GLP", "CUW", "UMI", "MTQ", "IRN", "BES"]);
 
+      // Best-effort "First Last" -> nation lookup, used to show a flag next
+      // to a driver's name on the leaderboard. The leaderboard's own data
+      // source (/rows) doesn't include nation at all, so this is the only
+      // way to attach one — matched purely by name, since that's the only
+      // field both sources share. Not guaranteed unique or complete.
+      const nameToNation = {};
+
       detailResults.forEach(result => {
         if (result.status !== "fulfilled") return;
         const drivers = result.value.drivers || [];
         drivers.forEach(driver => {
           const key = driver.player_id || `${driver.first_name}-${driver.last_name}`;
+          const nation = driver.nation;
+
+          const fullName = `${driver.first_name || ""} ${driver.last_name || ""}`.trim();
+          if (fullName && nation && !(fullName in nameToNation)) {
+            nameToNation[fullName] = nation;
+          }
+
           if (seenPlayers.has(key)) return;
           seenPlayers.add(key);
 
-          const nation = driver.nation;
           if (!nation || EXCLUDED_NATIONS.has(nation)) return;
           nationCounts[nation] = (nationCounts[nation] || 0) + 1;
         });
       });
 
-      return nationCounts;
+      return { nationCounts, nameToNation };
     }
+
+    // Populated once country/driver data has loaded (from cache or network).
+    // Used to show a flag next to a driver's name on the leaderboard.
+    let driverNationMap = {};
 
     async function loadCountries() {
       // Instant paint from cache if we have one, regardless of age
@@ -620,6 +646,8 @@
 
       if (cached && cached.nationCounts) {
         renderCountryData(cached.nationCounts);
+        driverNationMap = cached.nameToNation || {};
+        refreshLeaderboardFlags();
       } else {
         statusEl.textContent = "Loading driver data... this can take a moment on first visit.";
         statusEl.className = "";
@@ -629,11 +657,14 @@
       if (!isStale) return; // cache is fresh enough, skip the network entirely
 
       try {
-        const nationCounts = await fetchCountryData();
+        const { nationCounts, nameToNation } = await fetchCountryData();
         renderCountryData(nationCounts);
+        driverNationMap = nameToNation;
+        refreshLeaderboardFlags();
         try {
           localStorage.setItem(COUNTRY_CACHE_KEY, JSON.stringify({
             nationCounts,
+            nameToNation,
             timestamp: Date.now()
           }));
         } catch (err) {
@@ -705,9 +736,14 @@
         const tr = document.createElement("tr");
         if (rank <= 3) tr.classList.add("lb-podium-row");
         const medal = `<span class="lb-medal">${MEDALS[rank] || "🏁"}</span>`;
+        const nation = row.FullName ? driverNationMap[row.FullName] : null;
+        const flagUrl = nation ? flagImgFor(nation) : null;
+        const flagHtml = flagUrl
+          ? `<img class="lb-driver-flag" src="${flagUrl}" alt="${nation}" onerror="this.style.display='none'">`
+          : "";
         tr.innerHTML = `
           <td class="lb-pos">${medal}${rank}</td>
-          <td><div class="lb-driver-name">${row.FullName || "—"}</div></td>
+          <td><div class="lb-driver-name">${flagHtml}${row.FullName || "—"}</div></td>
           <td class="lb-car">${row.CarName || "—"}</td>
           <td class="lb-best">${row.BestLap || "-"}</td>
           <td class="lb-session">${row.SessionDate || ""}</td>
@@ -758,6 +794,15 @@
     }
 
     document.getElementById("leaderboard-search").addEventListener("input", applyLeaderboardSearch);
+
+    // Called once driverNationMap has been (re)populated, so any leaderboard
+    // already on screen picks up flags without needing a re-fetch. Just
+    // re-runs the current search/filter state to redraw with the same rows.
+    function refreshLeaderboardFlags() {
+      if (currentLeaderboardEntries.length > 0) {
+        applyLeaderboardSearch();
+      }
+    }
 
     async function loadLeaderboard(track) {
       activeTrack = track;

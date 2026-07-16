@@ -54,6 +54,22 @@
     }
     .discord-link:hover { background: #4752c4; }
 
+    .leaderboard-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    .leaderboard-title {
+      margin: 0;
+      color: #999;
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
     .leaderboard-search-input {
       display: block;
       width: 100%;
@@ -65,7 +81,6 @@
       padding: 8px 12px;
       border-radius: 6px;
       font-size: 14px;
-      margin-bottom: 12px;
       outline: none;
     }
     .leaderboard-search-input:focus {
@@ -270,6 +285,10 @@
       color: #fff;
       border-color: #e63946;
     }
+    .leaderboard-tab.leaderboard-tab-legacy.active {
+      background: #4a9eff;
+      border-color: #4a9eff;
+    }
     h2.section-title {
       font-size: 15px;
       text-transform: uppercase;
@@ -467,11 +486,14 @@
     <span class="live-badge" id="server-live-badge"><span class="live-dot"></span>Online</span>
     <span id="leaderboard-server-name-text"></span>
   </div>
-  <input
-    type="text"
-    id="leaderboard-search"
-    class="leaderboard-search-input"
-    placeholder="Search drivers, cars and sessions">
+  <div class="leaderboard-toolbar">
+    <h3 class="leaderboard-title" id="leaderboard-title"></h3>
+    <input
+      type="text"
+      id="leaderboard-search"
+      class="leaderboard-search-input"
+      placeholder="Search drivers, cars and sessions">
+  </div>
   <div id="leaderboard-status"></div>
   <div id="leaderboard-frame" class="leaderboard-frame"></div>
 
@@ -759,17 +781,20 @@
     const LEADERBOARDS = {
       nordschleife: {
         workerPrefix: "/server1",
-        shareKey: "ef64a8e5-f0cc-4fda-9242-33086d827694"
+        shareKey: "ef64a8e5-f0cc-4fda-9242-33086d827694",
+        title: "Hotlap"
       },
       kyalami: {
         workerPrefix: "/server2",
         shareKey: "a6aea2bb-9846-446d-9987-7d64cbdd90e6",
-        displayName: "Kyalami"
+        displayName: "Kyalami",
+        title: "Hotlap"
       },
       spa: {
         workerPrefix: "/server2",
         shareKey: "c8393a9b-16f2-4e29-9ddb-7de2ab3ad5ae",
         displayName: "Spa-Francorchamps",
+        title: "Hotlap",
         // Server 2 now runs Kyalami, not Spa — this leaderboard is frozen
         // (still queried by its own share key, so it keeps showing whatever
         // Spa data AssettoHosting last recorded), but there's no live status
@@ -861,6 +886,20 @@
       return table;
     }
 
+    function updateLeaderboardTitle(track, entryCount) {
+      const titleEl = document.getElementById("leaderboard-title");
+      const config = LEADERBOARDS[track];
+      if (!titleEl || !config) return;
+
+      if (!entryCount) {
+        titleEl.textContent = "";
+        return;
+      }
+
+      const label = config.title || "Hotlap";
+      titleEl.textContent = `${label} Top ${entryCount}`;
+    }
+
     function renderLeaderboardRows(rows) {
       const LEADERBOARD_MAX_ENTRIES = 200;
       const cleanRows = rows.filter(row => !isFlagged(row));
@@ -917,12 +956,14 @@
         lbStatusEl.textContent = "";
         lbFrameEl.innerHTML = "";
         lbFrameEl.appendChild(renderLeaderboardRows(leaderboardCache[track]));
+        updateLeaderboardTitle(track, currentLeaderboardEntries.length);
         return;
       }
 
       lbStatusEl.textContent = "Loading leaderboard...";
       lbStatusEl.className = "";
       lbFrameEl.innerHTML = "";
+      updateLeaderboardTitle(track, 0);
 
       try {
         const res = await fetch(WORKER_URL + `${config.workerPrefix}/leaderboards/embed/${config.shareKey}/rows`);
@@ -943,6 +984,7 @@
         lbStatusEl.textContent = "";
         lbFrameEl.innerHTML = "";
         lbFrameEl.appendChild(renderLeaderboardRows(rows));
+        updateLeaderboardTitle(track, currentLeaderboardEntries.length);
       } catch (err) {
         if (requestId !== leaderboardRequestId) return;
         lbStatusEl.textContent = "Error loading leaderboard: " + err.message;

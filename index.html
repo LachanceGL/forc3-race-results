@@ -14,7 +14,7 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: transparent;
       color: #eee;
-      padding: 20px;
+      padding: 10px 20px 20px;
       max-width: 900px;
       margin: 0 auto;
     }
@@ -37,7 +37,7 @@
     .discord-link {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      gap: 0;
       background: #5865F2;
       color: #fff;
       text-decoration: none;
@@ -261,8 +261,8 @@
     }
     .leaderboard-tab {
       background: #2a2a2a;
-      color: #999;
-      border: 2px solid #e63946;
+      color: #e63946;
+      border: 2px solid #333;
       padding: 8px 16px;
       border-radius: 6px;
       cursor: pointer;
@@ -278,6 +278,7 @@
     .leaderboard-tab.leaderboard-tab-legacy {
       background: #161616;
       border-color: #262626;
+      color: #666;
     }
     .leaderboard-tab.leaderboard-tab-legacy:hover {
       background: #202020;
@@ -312,8 +313,13 @@
       font-weight: 700;
     }
 
+    .section-divider {
+      border: none;
+      border-top: 1px solid #222;
+      margin: 24px 0;
+    }
     .section-box {
-      background: #202020;
+      background: #161616;
       border: 1px solid #2e2e2e;
       border-radius: 10px;
       padding: 24px;
@@ -415,9 +421,9 @@
     }
 
     footer {
+      position: relative;
       margin-top: 40px;
-      padding-top: 20px;
-      border-top: 1px solid #333;
+      padding-top: 24px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -425,6 +431,21 @@
       gap: 12px;
       color: #999;
       font-size: 13px;
+    }
+    footer::before,
+    footer::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: #333;
+    }
+    footer::before {
+      top: 0;
+    }
+    footer::after {
+      top: 6px;
     }
     .site-version {
       color: #444;
@@ -439,6 +460,7 @@
       display: inline-flex;
       align-items: center;
       gap: 6px;
+      font-weight: 700;
     }
     footer a svg {
       width: 16px;
@@ -498,6 +520,8 @@
   </div>
   <div id="leaderboard-status"></div>
   <div id="leaderboard-frame" class="leaderboard-frame"></div>
+
+  <hr class="section-divider">
 
   <div class="section-box">
     <h2 class="section-title">GT3 FORC3 DRIVERS AROUND THE WORLD</h2>

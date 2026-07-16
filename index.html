@@ -242,6 +242,12 @@
       color: #e63946;
       text-align: right;
     }
+    .lb-total-time {
+      font-family: "SF Mono", Consolas, monospace;
+      font-weight: 700;
+      color: #eee;
+      text-align: right;
+    }
     .lb-session {
       text-align: right;
       color: rgba(238, 238, 238, 0.4);
@@ -831,7 +837,76 @@
       }
     }
 
-    // ---- AC EVO Leaderboards (best laps, fetched from each server's public embed rows endpoint) ----
+    // ---- Race total time (Total Time column, Race-type leaderboards only) ----
+
+    // driver "first last" (lowercase) -> total race time in ms, per track.
+    // Sourced from that race's own results file (time_standings), which is
+    // the only place the game logs a penalty-adjusted official total time —
+    // the public /rows leaderboard only ever has best lap. Matched by name
+    // against /rows' FullName, same caveats as the flag feature.
+    const raceTotalTimeData = {};
+
+    function formatRaceTime(ms) {
+      if (ms == null || isNaN(ms)) return null;
+      const totalSeconds = ms / 1000;
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds - minutes * 60;
+      return `${minutes}:${seconds.toFixed(3).padStart(6, "0")}`;
+    }
+
+    async function fetchRaceTotalTimes(workerPrefix) {
+      const listRes = await fetch(WORKER_URL + workerPrefix + "/api/v1/results");
+      if (!listRes.ok) throw new Error("Server returned " + listRes.status);
+      const listData = await listRes.json();
+
+      const raceSessions = (listData.results || [])
+        .filter(s => s.session_type === "Race")
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+      if (raceSessions.length === 0) return {};
+
+      // Only the most recent race — /rows appears to reflect a single
+      // race's results (not an aggregate across multiple races), so
+      // matching against an older race would just produce wrong/stale times.
+      const latest = raceSessions[0];
+      const detail = await fetchWithRetry(WORKER_URL + workerPrefix + latest.download_url, 3);
+
+      const nameByGuid = {};
+      (detail.drivers || []).forEach(d => {
+        if (!d.guid) return;
+        const key = `${d.guid.a}-${d.guid.b}`;
+        nameByGuid[key] = `${d.first_name || ""} ${d.last_name || ""}`.trim();
+      });
+
+      const nameToTotalTimeMs = {};
+      (detail.driver_standings || []).forEach((guid, i) => {
+        if (!guid) return;
+        const key = `${guid.a}-${guid.b}`;
+        const name = nameByGuid[key];
+        const timeMs = detail.time_standings ? detail.time_standings[i] : null;
+        if (name && timeMs != null) {
+          nameToTotalTimeMs[name.toLowerCase()] = timeMs;
+        }
+      });
+
+      return nameToTotalTimeMs;
+    }
+
+    // Loads the latest race's total times for a track (no caching — always
+    // fetched fresh, since a new race can happen at any time and this is
+    // only 2 lightweight requests, unlike the heavy per-session driver scan).
+    async function ensureRaceTotalTimesLoaded(trackId) {
+      const config = LEADERBOARDS[trackId];
+      if (!config || !config.isRace) return;
+
+      try {
+        raceTotalTimeData[trackId] = await fetchRaceTotalTimes(config.workerPrefix);
+      } catch (err) {
+        raceTotalTimeData[trackId] = {};
+      }
+      refreshLeaderboardFlags();
+    }
+
     const LEADERBOARDS = {
       nordschleife: {
         workerPrefix: "/server1",
@@ -843,7 +918,11 @@
         workerPrefix: "/server2",
         shareKey: "13e1f53a-41d2-4e15-bb26-c123dc1a0558",
         displayName: "Red Bull Ring",
-        title: "Open Race"
+        title: "Open Race",
+        // Race-type leaderboards get an extra Total Time column, sourced
+        // from that race's own results file (time_standings), separately
+        // from the public /rows leaderboard which only has best lap.
+        isRace: true
       },
       kyalami: {
         workerPrefix: "/server2",
@@ -904,6 +983,10 @@
     let currentLeaderboardEntries = [];
 
     function buildLeaderboardTable(entries) {
+      const raceConfig = LEADERBOARDS[activeTrack];
+      const isRace = Boolean(raceConfig && raceConfig.isRace);
+      const totalTimeMap = raceTotalTimeData[activeTrack] || {};
+
       const table = document.createElement("table");
       table.innerHTML = `
         <thead>
@@ -912,6 +995,7 @@
             <th>Driver</th>
             <th>Car</th>
             <th class="lb-best">Best Lap</th>
+            ${isRace ? '<th class="lb-total-time">Total Time</th>' : ""}
             <th class="lb-session">Session</th>
           </tr>
         </thead>
@@ -930,11 +1014,16 @@
         const flagHtml = flagUrl
           ? `<img class="lb-driver-flag" src="${flagUrl}" alt="${nation}" onerror="this.style.display='none'">`
           : (row.FullName ? `<span class="lb-driver-flag lb-driver-flag-unknown" title="Nationality unknown">🌍</span>` : "");
+        const totalTimeMs = row.FullName ? totalTimeMap[row.FullName.trim().toLowerCase()] : null;
+        const totalTimeCell = isRace
+          ? `<td class="lb-total-time">${formatRaceTime(totalTimeMs) || "-"}</td>`
+          : "";
         tr.innerHTML = `
           <td class="lb-pos">${medal}${rank}</td>
           <td><div class="lb-driver-name">${flagHtml}${row.FullName || "—"}</div></td>
           <td class="lb-car">${row.CarName || "—"}</td>
           <td class="lb-best">${row.BestLap || "-"}</td>
+          ${totalTimeCell}
           <td class="lb-session">${row.SessionDate || ""}</td>
         `;
         tbody.appendChild(tr);
@@ -942,7 +1031,7 @@
 
       if (entries.length === 0) {
         const tr = document.createElement("tr");
-        tr.innerHTML = `<td colspan="5" style="text-align:center; color:#999; padding:20px;">No results match your search.</td>`;
+        tr.innerHTML = `<td colspan="${isRace ? 6 : 5}" style="text-align:center; color:#999; padding:20px;">No results match your search.</td>`;
         tbody.appendChild(tr);
       }
 
@@ -1137,6 +1226,7 @@
       loadLeaderboard(track);
       loadServerName(track);
       ensureTrackDataLoaded(track);
+      ensureRaceTotalTimesLoaded(track);
     }
 
     // Clicking a tab just changes the URL hash (native <a> behavior);
@@ -1169,6 +1259,7 @@
     loadServerName(activeTrack);
 
     ensureTrackDataLoaded(activeTrack);
+    ensureRaceTotalTimesLoaded(activeTrack);
     loadLeaderboard(activeTrack);
 
     document.getElementById("copyright").textContent =

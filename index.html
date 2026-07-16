@@ -446,6 +446,7 @@
   <img class="game-logo" src="https://cdn2.steamgriddb.com/logo_thumb/fc01a2102f0e61c902da69e52aac5d0d.png" alt="Assetto Corsa EVO">
   <div class="leaderboard-tabs">
     <a class="leaderboard-tab active" href="#nordschleife" data-track="nordschleife">Nordschleife</a>
+    <a class="leaderboard-tab" href="#kyalami" data-track="kyalami">Kyalami</a>
     <a class="leaderboard-tab" href="#spa" data-track="spa">Spa-Francorchamps</a>
   </div>
   <div class="leaderboard-server-name" id="leaderboard-server-name">
@@ -686,12 +687,18 @@
     // network), merges it in, and re-renders. Safe to call repeatedly for
     // the same track — it no-ops if that track is already loaded in memory.
     async function ensureTrackDataLoaded(trackId) {
-      if (loadedTrackData[trackId]) return; // already loaded this session
+      // Some tracks (e.g. Spa, now that the server runs Kyalami) don't have
+      // their own live driver pool anymore — they alias to whichever track
+      // actually shares their underlying server, so we fetch/cache once
+      // under that track's id instead of duplicating the same live data.
+      const dataKey = (LEADERBOARDS[trackId] && LEADERBOARDS[trackId].driverDataSource) || trackId;
 
-      const config = LEADERBOARDS[trackId];
+      if (loadedTrackData[dataKey]) return; // already loaded this session
+
+      const config = LEADERBOARDS[dataKey];
       if (!config) return;
 
-      const cacheKey = COUNTRY_CACHE_KEY + "_" + trackId;
+      const cacheKey = COUNTRY_CACHE_KEY + "_" + dataKey;
 
       let cached = null;
       try {
@@ -702,7 +709,7 @@
       }
 
       if (cached && cached.nationCounts) {
-        loadedTrackData[trackId] = cached;
+        loadedTrackData[dataKey] = cached;
         recomputeAndRenderTrackData();
       } else {
         statusEl.textContent = "Loading drivers data... this can take a moment on first visit.";
@@ -714,7 +721,7 @@
 
       try {
         const { nationCounts, nameToNation } = await fetchTrackDriverData(config.workerPrefix);
-        loadedTrackData[trackId] = { nationCounts, nameToNation };
+        loadedTrackData[dataKey] = { nationCounts, nameToNation };
         recomputeAndRenderTrackData();
         try {
           localStorage.setItem(cacheKey, JSON.stringify({
@@ -740,9 +747,27 @@
         workerPrefix: "/server1",
         shareKey: "ef64a8e5-f0cc-4fda-9242-33086d827694"
       },
+      kyalami: {
+        workerPrefix: "/server2",
+        shareKey: "a6aea2bb-9846-446d-9987-7d64cbdd90e6"
+      },
       spa: {
         workerPrefix: "/server2",
-        shareKey: "c8393a9b-16f2-4e29-9ddb-7de2ab3ad5ae"
+        shareKey: "c8393a9b-16f2-4e29-9ddb-7de2ab3ad5ae",
+        // Server 2 now runs Kyalami, not Spa — this leaderboard is frozen
+        // (still queried by its own share key, so it keeps showing whatever
+        // Spa data AssettoHosting last recorded), but there's no live status
+        // for it anymore. Force the badge to Offline instead of querying
+        // /server2's live status, which would now describe Kyalami.
+        legacy: true,
+        legacyServerName: "A1 / GT3 FORC3 | Spa-Francorchamps | Stats & Discord : GT3forc3.com",
+        // Driver/nation data for flags and the world map is fetched per
+        // server, not per track. Since Spa and Kyalami share the same
+        // physical server, point Spa at Kyalami's data instead of doing a
+        // separate (and now meaningless, since the server no longer runs
+        // Spa) fetch of its own — this also avoids double-counting the same
+        // live driver pool twice in the world map tally.
+        driverDataSource: "kyalami"
       }
     };
 
@@ -917,6 +942,21 @@
     async function loadServerName(track) {
       const labelEl = document.getElementById("leaderboard-server-name-text");
       const liveBadgeEl = document.getElementById("server-live-badge");
+      const config = LEADERBOARDS[track];
+
+      // Legacy tracks (e.g. Spa, after the server moved to Kyalami) don't
+      // have a live status of their own anymore — /server2's live status
+      // now describes whatever track it currently runs, not this one.
+      // Showing "Online" here would be actively misleading, so force
+      // Offline instead of querying it at all.
+      if (config.legacy) {
+        if (activeTrack === track) {
+          labelEl.textContent = config.legacyServerName || "";
+          liveBadgeEl.classList.add("visible", "offline");
+          liveBadgeEl.innerHTML = '<span class="live-dot"></span>Offline';
+        }
+        return;
+      }
 
       if (serverNameCache[track]) {
         if (activeTrack === track) {
@@ -928,7 +968,6 @@
         return;
       }
 
-      const config = LEADERBOARDS[track];
       try {
         const listRes = await fetch(WORKER_URL + `${config.workerPrefix}/api/v1/results`);
         if (!listRes.ok) throw new Error("Server returned " + listRes.status);

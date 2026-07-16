@@ -939,7 +939,7 @@
 
       const trackName = config.displayName || track;
       const label = config.title || "Hotlap";
-      titleEl.innerHTML = `<span class="leaderboard-track-badge">${trackName}</span>${label} Top ${entryCount}`;
+      titleEl.innerHTML = `${label} Top ${entryCount}<span class="leaderboard-track-badge">${trackName}</span>`;
     }
 
     function renderLeaderboardRows(rows) {

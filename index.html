@@ -953,7 +953,7 @@
       if (config.legacy) {
         if (activeTrack === track) {
           const name = config.displayName || track;
-          labelEl.textContent = `NO ACTIVE SERVER FOR "${name}" AT THE MOMENT`;
+          labelEl.innerHTML = `NO ACTIVE SERVER FOR <strong>${name.toUpperCase()}</strong> AT THE MOMENT`;
           liveBadgeEl.classList.add("visible", "offline");
           liveBadgeEl.innerHTML = '<span class="live-dot"></span>Offline';
         }

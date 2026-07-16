@@ -116,6 +116,13 @@
       background: #ff6b6b;
       animation: none;
     }
+    .live-badge.deactivated {
+      color: #4a9eff;
+    }
+    .live-badge.deactivated .live-dot {
+      background: #4a9eff;
+      animation: none;
+    }
 
     .leaderboard-frame {
       width: 100%;
@@ -250,6 +257,13 @@
     .leaderboard-tab:hover {
       background: #333;
       color: #eee;
+    }
+    .leaderboard-tab.leaderboard-tab-legacy {
+      background: #161616;
+      border-color: #262626;
+    }
+    .leaderboard-tab.leaderboard-tab-legacy:hover {
+      background: #202020;
     }
     .leaderboard-tab.active {
       background: #e63946;
@@ -948,14 +962,16 @@
       // Legacy tracks (e.g. Spa, after the server moved to Kyalami) don't
       // have a live status of their own anymore — /server2's live status
       // now describes whatever track it currently runs, not this one.
-      // Showing "Online" here would be actively misleading, so force
-      // Offline instead of querying it at all.
+      // These aren't just temporarily offline, they're deactivated (still
+      // browsable, but there's no server behind them), so use a distinct
+      // blue badge rather than the red "offline" one.
       if (config.legacy) {
         if (activeTrack === track) {
           const name = config.displayName || track;
           labelEl.innerHTML = `NO ACTIVE SERVER FOR <strong>${name.toUpperCase()}</strong> AT THE MOMENT`;
-          liveBadgeEl.classList.add("visible", "offline");
-          liveBadgeEl.innerHTML = '<span class="live-dot"></span>Offline';
+          liveBadgeEl.classList.remove("offline");
+          liveBadgeEl.classList.add("visible", "deactivated");
+          liveBadgeEl.innerHTML = '<span class="live-dot"></span>Deactivated';
         }
         return;
       }
@@ -1010,7 +1026,7 @@
       });
       const liveBadgeEl = document.getElementById("server-live-badge");
       document.getElementById("leaderboard-server-name-text").textContent = serverNameCache[track] || "";
-      liveBadgeEl.classList.remove("visible", "offline");
+      liveBadgeEl.classList.remove("visible", "offline", "deactivated");
       loadLeaderboard(track);
       loadServerName(track);
       ensureTrackDataLoaded(track);
@@ -1032,6 +1048,16 @@
         t.classList.toggle("active", t.dataset.track === initialTrack);
       });
     }
+
+    // Give legacy (deactivated) tracks' tabs a darker, muted look so they
+    // read as "not currently active" even before you click into them.
+    document.querySelectorAll(".leaderboard-tab").forEach(t => {
+      const config = LEADERBOARDS[t.dataset.track];
+      if (config && config.legacy) {
+        t.classList.add("leaderboard-tab-legacy");
+      }
+    });
+
     document.getElementById("leaderboard-server-name-text").textContent = "";
     loadServerName(activeTrack);
 

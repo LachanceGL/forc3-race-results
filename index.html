@@ -393,6 +393,13 @@
     .error {
       color: #ff8080;
     }
+    .empty-message {
+      color: #e63946;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      font-size: 12px;
+    }
     #status.loading {
       color: #ff8080;
       font-weight: 700;
@@ -1010,6 +1017,7 @@
 
         if (!rows || rows.length === 0) {
           lbStatusEl.textContent = "No Leaderboard active yet. Go Race!";
+          lbStatusEl.className = "empty-message";
           return;
         }
 

@@ -749,18 +749,19 @@
       },
       kyalami: {
         workerPrefix: "/server2",
-        shareKey: "a6aea2bb-9846-446d-9987-7d64cbdd90e6"
+        shareKey: "a6aea2bb-9846-446d-9987-7d64cbdd90e6",
+        displayName: "Kyalami"
       },
       spa: {
         workerPrefix: "/server2",
         shareKey: "c8393a9b-16f2-4e29-9ddb-7de2ab3ad5ae",
+        displayName: "Spa-Francorchamps",
         // Server 2 now runs Kyalami, not Spa — this leaderboard is frozen
         // (still queried by its own share key, so it keeps showing whatever
         // Spa data AssettoHosting last recorded), but there's no live status
         // for it anymore. Force the badge to Offline instead of querying
         // /server2's live status, which would now describe Kyalami.
         legacy: true,
-        legacyServerName: "A1 / GT3 FORC3 | Spa-Francorchamps | Stats & Discord : GT3forc3.com",
         // Driver/nation data for flags and the world map is fetched per
         // server, not per track. Since Spa and Kyalami share the same
         // physical server, point Spa at Kyalami's data instead of doing a
@@ -951,7 +952,8 @@
       // Offline instead of querying it at all.
       if (config.legacy) {
         if (activeTrack === track) {
-          labelEl.textContent = config.legacyServerName || "";
+          const name = config.displayName || track;
+          labelEl.textContent = `NO ACTIVE SERVER FOR "${name}" AT THE MOMENT`;
           liveBadgeEl.classList.add("visible", "offline");
           liveBadgeEl.innerHTML = '<span class="live-dot"></span>Offline';
         }

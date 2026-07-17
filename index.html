@@ -669,7 +669,7 @@
       return `https://www.hltv.org/img/static/flags/30x20/${iso2}.gif`;
     }
 
-    const COUNTRY_CACHE_KEY = "gt3_country_data_v7";
+    const COUNTRY_CACHE_KEY = "gt3_country_data_v8";
     const COUNTRY_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
     function renderCountryData(nationCounts) {
@@ -876,12 +876,27 @@
 
       const fetchPromise = (async () => {
         try {
-          const { nationCounts, nameToNation, hadFailures } = await fetchTrackDriverData(config.workerPrefix);
+          let result = await fetchTrackDriverData(config.workerPrefix);
+
+          // If the first pass had failures, retry once and keep whichever
+          // attempt found more drivers — a failure-prone fetch (e.g. from a
+          // transient network blip) is likely to succeed cleanly on a
+          // second, unhurried attempt.
+          if (result.hadFailures) {
+            const retryResult = await fetchTrackDriverData(config.workerPrefix);
+            const countTotal = r => Object.values(r.nationCounts).reduce((a, b) => a + b, 0);
+            if (countTotal(retryResult) >= countTotal(result)) {
+              result = retryResult;
+            }
+          }
+
+          const { nationCounts, nameToNation, hadFailures } = result;
           loadedTrackData[dataKey] = { nationCounts, nameToNation };
           recomputeAndRenderTrackData();
           // Don't persist a degraded result — if some session fetches
-          // failed, let the next visit try again fresh rather than being
-          // stuck for an hour with an undercounted cache.
+          // failed even after the retry, let the next visit try again
+          // fresh rather than being stuck for an hour with an undercounted
+          // cache.
           if (!hadFailures) {
             try {
               localStorage.setItem(cacheKey, JSON.stringify({
@@ -1363,9 +1378,15 @@
         trackId => LEADERBOARDS[trackId].driverDataSource || trackId
       )
     );
-    uniqueDataSources.forEach(trackId => {
-      ensureTrackDataLoaded(trackId);
-    });
+    // Load one track fully before starting the next — running two tracks'
+    // "sequential" fetch loops concurrently is itself a burst pattern, and
+    // was still causing individual session requests to fail even after the
+    // same-track in-flight lock was added.
+    (async () => {
+      for (const trackId of uniqueDataSources) {
+        await ensureTrackDataLoaded(trackId);
+      }
+    })();
 
     ensureRaceTotalTimesLoaded(activeTrack);
     loadLeaderboard(activeTrack);

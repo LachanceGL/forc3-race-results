@@ -633,7 +633,7 @@
       return `https://www.hltv.org/img/static/flags/30x20/${iso2}.gif`;
     }
 
-    const COUNTRY_CACHE_KEY = "gt3_country_data_v4";
+    const COUNTRY_CACHE_KEY = "gt3_country_data_v5";
     const COUNTRY_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
     function renderCountryData(nationCounts) {
@@ -692,7 +692,7 @@
     }
 
     // Nation codes to exclude entirely from the country grid.
-    const EXCLUDED_NATIONS = new Set(["REU", "RUS", "ATA", "GLP", "CUW", "UMI", "MTQ", "IRN", "BES", "ATF", "GGY"]);
+    const EXCLUDED_NATIONS = new Set(["REU", "RUS", "ATA", "GLP", "CUW", "UMI", "MTQ", "IRN", "BES", "ATF", "GGY", "GIB", "BLM"]);
 
     // Fetches and tallies driver/nation data for ONE track's session pool.
     // Kept per-track (rather than one combined fetch across every track) so
@@ -858,6 +858,12 @@
     // to show "Invalid" instead of a computed Total Time for them — for
     // cases where the name-match produced a wrong/broken value (e.g. a
     // blank or 0:00.000 time) rather than their real result.
+    //
+    // NOT related to FLAGGED_DRIVERS / the cheater system below — this is
+    // purely a data-quality fix for one bad number. The driver's row stays
+    // fully visible with their correct rank, name, best lap, and session;
+    // only the Total Time cell is overridden. They are not flagged, banned,
+    // or removed in any way.
     const INVALID_TOTAL_TIME_DRIVERS = new Set([
       "Andres Guittard",
       "G. LACH"

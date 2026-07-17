@@ -658,7 +658,7 @@
       return `https://www.hltv.org/img/static/flags/30x20/${iso2}.gif`;
     }
 
-    const COUNTRY_CACHE_KEY = "gt3_country_data_v5";
+    const COUNTRY_CACHE_KEY = "gt3_country_data_v6";
     const COUNTRY_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
     function renderCountryData(nationCounts) {
@@ -747,11 +747,13 @@
       // mobile networks/browsers even with retries — going fully sequential
       // removes any "burst" pattern that a carrier, router, or content
       // blocker might be flagging.
+      let hadFailures = false;
       for (const session of sessions) {
         let value;
         try {
           value = await fetchWithRetry(WORKER_URL + workerPrefix + session.download_url, 3);
         } catch (err) {
+          hadFailures = true;
           await new Promise(r => setTimeout(r, 30));
           continue;
         }
@@ -776,7 +778,7 @@
         });
       }
 
-      return { nationCounts, nameToNation };
+      return { nationCounts, nameToNation, hadFailures };
     }
 
     // Holds each track's fetched nation data once loaded, keyed by track id
@@ -815,6 +817,15 @@
     // Loads a single track's driver/nation data (from cache if fresh, else
     // network), merges it in, and re-renders. Safe to call repeatedly for
     // the same track — it no-ops if that track is already loaded in memory.
+    // Tracks an in-progress fetch per dataKey, so a second trigger (e.g.
+    // switching tabs while the initial eager-load is still running) awaits
+    // the SAME fetch instead of starting a duplicate one. Without this,
+    // two "sequential" fetch loops could run concurrently for the same
+    // track — exactly the kind of request burst the sequential design was
+    // meant to avoid — which was causing individual session fetches to
+    // fail and a degraded partial result to get cached as if complete.
+    const pendingTrackDataFetch = {};
+
     async function ensureTrackDataLoaded(trackId) {
       // Some tracks (e.g. Spa, now that the server runs Kyalami) don't have
       // their own live driver pool anymore — they alias to whichever track
@@ -823,6 +834,10 @@
       const dataKey = (LEADERBOARDS[trackId] && LEADERBOARDS[trackId].driverDataSource) || trackId;
 
       if (loadedTrackData[dataKey]) return; // already loaded this session
+
+      // A fetch for this exact track is already in flight — wait on it
+      // rather than starting a second one.
+      if (pendingTrackDataFetch[dataKey]) return pendingTrackDataFetch[dataKey];
 
       const config = LEADERBOARDS[dataKey];
       if (!config) return;
@@ -848,26 +863,38 @@
       const isStale = !cached || (Date.now() - cached.timestamp > COUNTRY_CACHE_TTL_MS);
       if (!isStale) return; // cache is fresh enough, skip the network entirely
 
-      try {
-        const { nationCounts, nameToNation } = await fetchTrackDriverData(config.workerPrefix);
-        loadedTrackData[dataKey] = { nationCounts, nameToNation };
-        recomputeAndRenderTrackData();
+      const fetchPromise = (async () => {
         try {
-          localStorage.setItem(cacheKey, JSON.stringify({
-            nationCounts,
-            nameToNation,
-            timestamp: Date.now()
-          }));
+          const { nationCounts, nameToNation, hadFailures } = await fetchTrackDriverData(config.workerPrefix);
+          loadedTrackData[dataKey] = { nationCounts, nameToNation };
+          recomputeAndRenderTrackData();
+          // Don't persist a degraded result — if some session fetches
+          // failed, let the next visit try again fresh rather than being
+          // stuck for an hour with an undercounted cache.
+          if (!hadFailures) {
+            try {
+              localStorage.setItem(cacheKey, JSON.stringify({
+                nationCounts,
+                nameToNation,
+                timestamp: Date.now()
+              }));
+            } catch (err) {
+              // Storage full or unavailable — not critical, just skip caching
+            }
+          }
         } catch (err) {
-          // Storage full or unavailable — not critical, just skip caching
+          // If we already rendered from cache, fail silently in the background.
+          if (!cached) {
+            statusEl.textContent = "Error loading driver data: " + err.message;
+            statusEl.className = "error";
+          }
+        } finally {
+          delete pendingTrackDataFetch[dataKey];
         }
-      } catch (err) {
-        // If we already rendered from cache, fail silently in the background.
-        if (!cached) {
-          statusEl.textContent = "Error loading driver data: " + err.message;
-          statusEl.className = "error";
-        }
-      }
+      })();
+
+      pendingTrackDataFetch[dataKey] = fetchPromise;
+      return fetchPromise;
     }
 
     // ---- Race total time (Total Time column, Race-type leaderboards only) ----

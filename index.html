@@ -572,6 +572,10 @@
       Nordschleife
       <span class="leaderboard-tab-type">Hotlap</span>
     </a>
+    <a class="leaderboard-tab" href="#spa" data-track="spa">
+      Spa-Francorchamps
+      <span class="leaderboard-tab-type">Hotlap</span>
+    </a>
     <a class="leaderboard-tab" href="#redbullring" data-track="redbullring">
       Red Bull Ring
       <span class="leaderboard-tab-type">Racing</span>
@@ -1022,12 +1026,12 @@
         shareKey: "c8393a9b-16f2-4e29-9ddb-7de2ab3ad5ae",
         displayName: "Spa-Francorchamps",
         title: "Hotlap",
-        // Server 2 has moved on again since (now runs Red Bull Ring) — still
-        // frozen, still no live status, just points its driver data at
-        // whichever track is actually live now instead of Kyalami.
+        // Server 2 runs Red Bull Ring now, not Spa — this leaderboard is
+        // frozen (still queried by its own share key, so it keeps showing
+        // whatever Spa data AssettoHosting last recorded), but there's no
+        // live status for it anymore, so it shows as legacy/inactive.
         legacy: true,
-        driverDataSource: "redbullring",
-        archived: true
+        driverDataSource: "redbullring"
       }
     };
 

@@ -1026,11 +1026,13 @@
         shareKey: "c8393a9b-16f2-4e29-9ddb-7de2ab3ad5ae",
         displayName: "Spa Francorchamps",
         title: "Hotlap",
-        // Server 2 runs Red Bull Ring now, not Spa — this leaderboard is
-        // frozen (still queried by its own share key, so it keeps showing
-        // whatever Spa data AssettoHosting last recorded), but there's no
-        // live status for it anymore, so it shows as legacy/inactive.
-        legacy: true,
+        // Spa and Red Bull Ring share the same physical server (server2),
+        // which rotates between tracks. Both are treated as "live" here —
+        // whichever one ISN'T the server's current active track will show
+        // the other's live status mislabeled as itself until the server
+        // actually switches. Kept driverDataSource pointing at a shared
+        // key so the two don't double-fetch/double-count the same driver
+        // pool in the world map tally.
         driverDataSource: "redbullring"
       }
     };

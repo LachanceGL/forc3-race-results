@@ -1258,7 +1258,20 @@
     document.getElementById("leaderboard-server-name-text").textContent = "";
     loadServerName(activeTrack);
 
-    ensureTrackDataLoaded(activeTrack);
+    // The "Drivers Around The World" section is a global overview, not tied
+    // to whichever leaderboard tab is selected — so load every live track's
+    // driver data up front rather than only the active one, otherwise the
+    // country count would visibly grow as someone clicks through tabs
+    // instead of showing the true overall total from the start.
+    const uniqueDataSources = new Set(
+      Object.keys(LEADERBOARDS).map(
+        trackId => LEADERBOARDS[trackId].driverDataSource || trackId
+      )
+    );
+    uniqueDataSources.forEach(trackId => {
+      ensureTrackDataLoaded(trackId);
+    });
+
     ensureRaceTotalTimesLoaded(activeTrack);
     loadLeaderboard(activeTrack);
 

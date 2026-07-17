@@ -248,6 +248,14 @@
       color: #eee;
       text-align: right;
     }
+    .lb-total-time-invalid {
+      color: #666;
+      font-weight: 600;
+      font-style: italic;
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 0.03em;
+    }
     .lb-session {
       text-align: right;
       color: rgba(238, 238, 238, 0.4);
@@ -539,7 +547,7 @@
     </a>
     <a class="leaderboard-tab" href="#redbullring" data-track="redbullring">
       Red Bull Ring
-      <span class="leaderboard-tab-type">Open Race</span>
+      <span class="leaderboard-tab-type">Racing</span>
     </a>
   </div>
   <div class="leaderboard-server-name" id="leaderboard-server-name">
@@ -846,6 +854,15 @@
     // against /rows' FullName, same caveats as the flag feature.
     const raceTotalTimeData = {};
 
+    // Add a driver's exact FullName here (as it appears on the leaderboard)
+    // to show "Invalid" instead of a computed Total Time for them — for
+    // cases where the name-match produced a wrong/broken value (e.g. a
+    // blank or 0:00.000 time) rather than their real result.
+    const INVALID_TOTAL_TIME_DRIVERS = new Set([
+      "Andres Guittard",
+      "G. LACH"
+    ]);
+
     function formatRaceTime(ms) {
       if (ms == null || isNaN(ms)) return null;
       const totalSeconds = ms / 1000;
@@ -918,7 +935,7 @@
         workerPrefix: "/server2",
         shareKey: "13e1f53a-41d2-4e15-bb26-c123dc1a0558",
         displayName: "Red Bull Ring",
-        title: "Open Race",
+        title: "Racing",
         // Race-type leaderboards get an extra Total Time column, sourced
         // from that race's own results file (time_standings), separately
         // from the public /rows leaderboard which only has best lap.
@@ -1015,8 +1032,9 @@
           ? `<img class="lb-driver-flag" src="${flagUrl}" alt="${nation}" onerror="this.style.display='none'">`
           : (row.FullName ? `<span class="lb-driver-flag lb-driver-flag-unknown" title="Nationality unknown">🌍</span>` : "");
         const totalTimeMs = row.FullName ? totalTimeMap[row.FullName.trim().toLowerCase()] : null;
+        const isInvalidTotalTime = row.FullName && INVALID_TOTAL_TIME_DRIVERS.has(row.FullName);
         const totalTimeCell = isRace
-          ? `<td class="lb-total-time">${formatRaceTime(totalTimeMs) || "-"}</td>`
+          ? `<td class="lb-total-time${isInvalidTotalTime ? " lb-total-time-invalid" : ""}">${isInvalidTotalTime ? "Invalid" : (formatRaceTime(totalTimeMs) || "-")}</td>`
           : "";
         tr.innerHTML = `
           <td class="lb-pos">${medal}${rank}</td>

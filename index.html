@@ -442,6 +442,25 @@
     #status {
       color: #999;
     }
+    .loading-bar-track {
+      display: none;
+      width: 100%;
+      height: 4px;
+      background: #2a2a2a;
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+    .loading-bar-track.visible {
+      display: block;
+    }
+    .loading-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: #e63946;
+      border-radius: 2px;
+      transition: width 0.2s ease-out;
+    }
     #status:not(:empty) {
       padding: 12px 0;
     }
@@ -607,6 +626,9 @@
     <h2 class="section-title">GT3 FORC3 DRIVERS AROUND THE WORLD</h2>
     <div class="section-subtitle" id="country-subtitle">🌍 Countries represented</div>
     <div id="status"></div>
+    <div class="loading-bar-track" id="loading-bar-track">
+      <div class="loading-bar-fill" id="loading-bar-fill"></div>
+    </div>
     <div id="content"></div>
   </div>
 
@@ -737,7 +759,7 @@
     // that adding more tracks in the future doesn't make every visitor pay
     // for fetching every track's full session history — a track's data is
     // only ever fetched when that track is actually viewed.
-    async function fetchTrackDriverData(workerPrefix) {
+    async function fetchTrackDriverData(workerPrefix, onProgress) {
       const seenPlayers = new Set();
       const nationCounts = {};
       // Best-effort "First Last" -> nation lookup, used to show a flag next
@@ -761,16 +783,23 @@
       // removes any "burst" pattern that a carrier, router, or content
       // blocker might be flagging.
       let hadFailures = false;
+      let completed = 0;
+      if (onProgress) onProgress(0, sessions.length);
       for (const session of sessions) {
         let value;
         try {
           value = await fetchWithRetry(WORKER_URL + workerPrefix + session.download_url, 3);
         } catch (err) {
           hadFailures = true;
+          completed++;
+          if (onProgress) onProgress(completed, sessions.length);
           await new Promise(r => setTimeout(r, 30));
           continue;
         }
         await new Promise(r => setTimeout(r, 30));
+
+        completed++;
+        if (onProgress) onProgress(completed, sessions.length);
 
         const drivers = value.drivers || [];
         drivers.forEach(driver => {
@@ -876,16 +905,29 @@
       const isStale = !cached || (Date.now() - cached.timestamp > COUNTRY_CACHE_TTL_MS);
       if (!isStale) return; // cache is fresh enough, skip the network entirely
 
+      const barTrackEl = document.getElementById("loading-bar-track");
+      const barFillEl = document.getElementById("loading-bar-fill");
+      const showProgress = (completed, total) => {
+        if (!barTrackEl || !barFillEl || !total) return;
+        barTrackEl.classList.add("visible");
+        barFillEl.style.width = `${Math.min(100, (completed / total) * 100)}%`;
+      };
+      const hideProgress = () => {
+        if (!barTrackEl || !barFillEl) return;
+        barTrackEl.classList.remove("visible");
+        barFillEl.style.width = "0%";
+      };
+
       const fetchPromise = (async () => {
         try {
-          let result = await fetchTrackDriverData(config.workerPrefix);
+          let result = await fetchTrackDriverData(config.workerPrefix, showProgress);
 
           // If the first pass had failures, retry once and keep whichever
           // attempt found more drivers — a failure-prone fetch (e.g. from a
           // transient network blip) is likely to succeed cleanly on a
           // second, unhurried attempt.
           if (result.hadFailures) {
-            const retryResult = await fetchTrackDriverData(config.workerPrefix);
+            const retryResult = await fetchTrackDriverData(config.workerPrefix, showProgress);
             const countTotal = r => Object.values(r.nationCounts).reduce((a, b) => a + b, 0);
             if (countTotal(retryResult) >= countTotal(result)) {
               result = retryResult;
@@ -917,6 +959,7 @@
             statusEl.className = "error";
           }
         } finally {
+          hideProgress();
           delete pendingTrackDataFetch[dataKey];
         }
       })();

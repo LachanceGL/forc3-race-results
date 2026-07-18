@@ -583,8 +583,10 @@
       Spa Francorchamps
       <span class="leaderboard-tab-type">Hotlap</span>
     </a>
-    <!-- Red Bull Ring tab hidden for now — config still fully intact below,
-         just add this <a> back to show it again. -->
+    <a class="leaderboard-tab" href="#redbullring" data-track="redbullring">
+      Red Bull Ring
+      <span class="leaderboard-tab-type">Racing</span>
+    </a>
   </div>
   <div class="leaderboard-server-name" id="leaderboard-server-name">
     <span class="live-badge" id="server-live-badge"><span class="live-dot"></span>Online</span>
@@ -1017,8 +1019,8 @@
         updateNote: "Ranking updated every 8 hours"
       },
       redbullring: {
-        workerPrefix: "/server2",
-        shareKey: "13e1f53a-41d2-4e15-bb26-c123dc1a0558",
+        workerPrefix: "/server3",
+        shareKey: "3a0072bb-b916-4262-8e81-28f6486b4f75",
         displayName: "Red Bull Ring",
         title: "Racing",
         updateNote: "Ranking updated every race",
@@ -1046,15 +1048,7 @@
         shareKey: "c8393a9b-16f2-4e29-9ddb-7de2ab3ad5ae",
         displayName: "Spa Francorchamps",
         title: "Hotlap",
-        updateNote: "Ranking updated every 8 hours",
-        // Spa and Red Bull Ring share the same physical server (server2),
-        // which rotates between tracks. Both are treated as "live" here —
-        // whichever one ISN'T the server's current active track will show
-        // the other's live status mislabeled as itself until the server
-        // actually switches. Kept driverDataSource pointing at a shared
-        // key so the two don't double-fetch/double-count the same driver
-        // pool in the world map tally.
-        driverDataSource: "redbullring"
+        updateNote: "Ranking updated every 8 hours"
       }
     };
 

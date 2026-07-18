@@ -300,6 +300,14 @@
       opacity: 0.5;
       font-size: 12px;
     }
+    .lb-verified-badge {
+      width: 14px;
+      height: 14px;
+      margin-left: 5px;
+      vertical-align: middle;
+      position: relative;
+      top: -1px;
+    }
     .lb-best {
       font-family: "SF Mono", Consolas, monospace;
       font-weight: 700;
@@ -1228,6 +1236,17 @@
       "5:49.692": "Cheater, will be removed"
     };
 
+    // Add a driver's exact FullName here (as it appears on the leaderboard)
+    // to show a verified badge next to their name. Independent of the
+    // cheater-flagging system above — a driver can only be in one of the
+    // two lists at a time in practice, but nothing here enforces that.
+    const VERIFIED_DRIVERS = new Set([
+      "WhyTore HD",
+      "Christian Steenburgh",
+      "Freek Frederix"
+    ]);
+    const VERIFIED_BADGE_URL = "https://raw.githubusercontent.com/LachanceGL/gt3forc3-website/refs/heads/main/GT3FORC3_VerifiedBadge01.png";
+
     // Holds the currently displayed track's ranked, cheater-filtered entries,
     // so the search box can filter/re-render instantly without re-fetching.
     let currentLeaderboardEntries = [];
@@ -1264,6 +1283,9 @@
         const flagHtml = flagUrl
           ? `<img class="lb-driver-flag" src="${flagUrl}" alt="${nation}" onerror="this.style.display='none'">`
           : (row.FullName ? `<span class="lb-driver-flag lb-driver-flag-unknown" title="Nationality unknown">🌍</span>` : "");
+        const verifiedHtml = (row.FullName && VERIFIED_DRIVERS.has(row.FullName))
+          ? `<img class="lb-verified-badge" src="${VERIFIED_BADGE_URL}" alt="Verified" title="Verified driver">`
+          : "";
         const driverTimesByDate = row.FullName ? totalTimesByDate[row.FullName.trim().toLowerCase()] : null;
         const totalTimeMs = driverTimesByDate ? driverTimesByDate[row.SessionDate] : null;
         const isInvalidTotalTime = row.FullName && INVALID_TOTAL_TIME_DRIVERS.has(row.FullName);
@@ -1272,7 +1294,7 @@
           : "";
         tr.innerHTML = `
           <td class="lb-pos">${medal}${rank}</td>
-          <td><div class="lb-driver-name">${flagHtml}${row.FullName || "—"}</div></td>
+          <td><div class="lb-driver-name">${flagHtml}${row.FullName || "—"}${verifiedHtml}</div></td>
           <td class="lb-car">${row.CarName || "—"}</td>
           <td class="lb-best">${row.BestLap || "-"}</td>
           ${totalTimeCell}

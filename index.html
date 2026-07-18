@@ -1014,11 +1014,15 @@
 
     // ---- Race total time (Total Time column, Race-type leaderboards only) ----
 
-    // driver "first last" (lowercase) -> total race time in ms, per track.
-    // Sourced from that race's own results file (time_standings), which is
-    // the only place the game logs a penalty-adjusted official total time —
-    // the public /rows leaderboard only ever has best lap. Matched by name
-    // against /rows' FullName, same caveats as the flag feature.
+    // driver "first last" (lowercase) -> { "YYYY-MM-DD" session date -> total
+    // race time in ms }, per track. Sourced from each race's own results
+    // file (time_standings), which is the only place the game logs a
+    // penalty-adjusted official total time — the public /rows leaderboard
+    // only ever has best lap. Matched by name against /rows' FullName, same
+    // caveats as the flag feature. Keyed by date as well as name because
+    // the same driver can appear on the Best Lap leaderboard from more than
+    // one race (on different days) — a name-only key would let one race's
+    // time silently clobber another's for anyone who raced more than once.
     const raceTotalTimeData = {};
 
     // Add a driver's exact FullName here (as it appears on the leaderboard)
@@ -1063,36 +1067,59 @@
 
       if (raceSessions.length === 0) return {};
 
-      // Only the most recent race — /rows appears to reflect a single
-      // race's results (not an aggregate across multiple races), so
-      // matching against an older race would just produce wrong/stale times.
-      const latest = raceSessions[0];
-      const detail = await fetchWithRetry(WORKER_URL + workerPrefix + latest.download_url, 3);
-
-      const nameByGuid = {};
-      (detail.drivers || []).forEach(d => {
-        if (!d.guid) return;
-        const key = `${d.guid.a}-${d.guid.b}`;
-        nameByGuid[key] = `${d.first_name || ""} ${d.last_name || ""}`.trim();
-      });
-
-      const nameToTotalTimeMs = {};
-      (detail.driver_standings || []).forEach((guid, i) => {
-        if (!guid) return;
-        const key = `${guid.a}-${guid.b}`;
-        const name = nameByGuid[key];
-        const timeMs = detail.time_standings ? detail.time_standings[i] : null;
-        if (name && timeMs != null) {
-          nameToTotalTimeMs[name.toLowerCase()] = timeMs;
+      // Walk every race session (not just the latest) — the Best Lap
+      // leaderboard (/rows) is an all-time ranking, so it can surface
+      // drivers from older races too, and those rows need their own
+      // race's Total Time rather than being left blank or matched against
+      // an unrelated race. Fetched sequentially with a short gap, same
+      // reasoning as the driver/country scan: a burst of parallel requests
+      // was failing outright on some mobile networks.
+      const nameToTotalTimesByDate = {};
+      for (const session of raceSessions) {
+        let detail;
+        try {
+          detail = await fetchWithRetry(WORKER_URL + workerPrefix + session.download_url, 3);
+        } catch (err) {
+          continue; // skip this one race, the rest can still succeed
         }
-      });
+        await new Promise(r => setTimeout(r, 30));
 
-      return nameToTotalTimeMs;
+        // Results timestamps are ISO strings like "2026-07-13T23:40:49-07:00" —
+        // the date portion lines up with /rows' own "YYYY-MM-DD" SessionDate.
+        const sessionDate = (session.timestamp || "").slice(0, 10);
+
+        const nameByGuid = {};
+        (detail.drivers || []).forEach(d => {
+          if (!d.guid) return;
+          const key = `${d.guid.a}-${d.guid.b}`;
+          nameByGuid[key] = `${d.first_name || ""} ${d.last_name || ""}`.trim();
+        });
+
+        (detail.driver_standings || []).forEach((guid, i) => {
+          if (!guid) return;
+          const key = `${guid.a}-${guid.b}`;
+          const name = nameByGuid[key];
+          const timeMs = detail.time_standings ? detail.time_standings[i] : null;
+          if (!name || timeMs == null) return;
+
+          const nameKey = name.toLowerCase();
+          if (!nameToTotalTimesByDate[nameKey]) nameToTotalTimesByDate[nameKey] = {};
+          // If two races somehow share the same date for this driver, keep
+          // whichever we saw first (sessions are processed newest-first).
+          if (!(sessionDate in nameToTotalTimesByDate[nameKey])) {
+            nameToTotalTimesByDate[nameKey][sessionDate] = timeMs;
+          }
+        });
+      }
+
+      return nameToTotalTimesByDate;
     }
 
-    // Loads the latest race's total times for a track (no caching — always
-    // fetched fresh, since a new race can happen at any time and this is
-    // only 2 lightweight requests, unlike the heavy per-session driver scan).
+    // Loads every race's total times for a track (no caching — always
+    // fetched fresh, since a new race can happen at any time). More
+    // requests than before now that every race session gets scanned rather
+    // than just the latest, but still cheap relative to the driver/country
+    // scan since race sessions are a small subset of all sessions.
     async function ensureRaceTotalTimesLoaded(trackId) {
       const config = LEADERBOARDS[trackId];
       if (!config || !config.isRace) return;
@@ -1208,7 +1235,7 @@
     function buildLeaderboardTable(entries) {
       const raceConfig = LEADERBOARDS[activeTrack];
       const isRace = Boolean(raceConfig && raceConfig.isRace);
-      const totalTimeMap = raceTotalTimeData[activeTrack] || {};
+      const totalTimesByDate = raceTotalTimeData[activeTrack] || {};
 
       const table = document.createElement("table");
       table.innerHTML = `
@@ -1237,7 +1264,8 @@
         const flagHtml = flagUrl
           ? `<img class="lb-driver-flag" src="${flagUrl}" alt="${nation}" onerror="this.style.display='none'">`
           : (row.FullName ? `<span class="lb-driver-flag lb-driver-flag-unknown" title="Nationality unknown">🌍</span>` : "");
-        const totalTimeMs = row.FullName ? totalTimeMap[row.FullName.trim().toLowerCase()] : null;
+        const driverTimesByDate = row.FullName ? totalTimesByDate[row.FullName.trim().toLowerCase()] : null;
+        const totalTimeMs = driverTimesByDate ? driverTimesByDate[row.SessionDate] : null;
         const isInvalidTotalTime = row.FullName && INVALID_TOTAL_TIME_DRIVERS.has(row.FullName);
         const totalTimeCell = isRace
           ? `<td class="lb-total-time${isInvalidTotalTime ? " lb-total-time-invalid" : ""}">${isInvalidTotalTime ? "Invalid" : (formatRaceTime(totalTimeMs) || "-")}</td>`

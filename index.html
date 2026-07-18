@@ -739,7 +739,7 @@
       return `https://www.hltv.org/img/static/flags/30x20/${iso2}.gif`;
     }
 
-    const COUNTRY_CACHE_KEY = "gt3_country_data_v8";
+    const COUNTRY_CACHE_KEY = "gt3_country_data_v9";
     const COUNTRY_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
     function renderCountryData(nationCounts) {
@@ -815,6 +815,16 @@
       // field both sources share. Not guaranteed unique or complete.
       const nameToNation = {};
 
+      // "First Last" (lowercase) -> player_id (Steam64), and the reverse:
+      // player_id -> every lowercase name seen under that account. /rows
+      // (what the leaderboard itself is built from) has no persistent ID at
+      // all — only these session-results files do — so this is the only
+      // way to recognize "same driver, renamed" rather than treating a
+      // rename as an unrelated new person. Used to make FLAGGED_DRIVERS and
+      // VERIFIED_DRIVERS follow the account instead of the exact string.
+      const nameToPlayerId = {};
+      const playerIdToNames = {};
+
       const listRes = await fetch(WORKER_URL + workerPrefix + "/api/v1/results");
       if (!listRes.ok) throw new Error("Server returned " + listRes.status);
       const listData = await listRes.json();
@@ -858,6 +868,12 @@
             nameToNation[nameKey] = nation;
           }
 
+          if (nameKey && driver.player_id) {
+            if (!(nameKey in nameToPlayerId)) nameToPlayerId[nameKey] = driver.player_id;
+            if (!playerIdToNames[driver.player_id]) playerIdToNames[driver.player_id] = new Set();
+            playerIdToNames[driver.player_id].add(nameKey);
+          }
+
           if (seenPlayers.has(key)) return;
           seenPlayers.add(key);
 
@@ -866,7 +882,7 @@
         });
       }
 
-      return { nationCounts, nameToNation, hadFailures };
+      return { nationCounts, nameToNation, nameToPlayerId, playerIdToNames, hadFailures };
     }
 
     // Holds each track's fetched nation data once loaded, keyed by track id
@@ -884,21 +900,64 @@
     // will be counted once per track here (each track dedupes its own
     // drivers, but there's no cross-track identity check) — a minor
     // over-count, traded for keeping each track's fetch independent.
+    // Lowercase driver-name sets, expanded from FLAGGED_DRIVERS/VERIFIED_DRIVERS
+    // to also include every other name the same underlying account (by
+    // player_id) has raced under — so a rename doesn't let a flagged driver
+    // dodge the flag, and doesn't strip a verified driver's badge. Falls
+    // back to exact-name-only matching until the driver scan has resolved
+    // at least one track's player_id data.
+    let expandedFlaggedNameKeys = new Set();
+    let expandedVerifiedNameKeys = new Set();
+
     function recomputeAndRenderTrackData() {
       const combinedCounts = {};
       const combinedNameToNation = {};
+      const combinedNameToPlayerId = {};
+      const combinedPlayerIdToNames = {};
 
-      Object.values(loadedTrackData).forEach(({ nationCounts, nameToNation }) => {
+      Object.values(loadedTrackData).forEach(({ nationCounts, nameToNation, nameToPlayerId, playerIdToNames }) => {
         Object.entries(nationCounts).forEach(([code, count]) => {
           combinedCounts[code] = (combinedCounts[code] || 0) + count;
         });
         Object.entries(nameToNation).forEach(([name, nation]) => {
           if (!(name in combinedNameToNation)) combinedNameToNation[name] = nation;
         });
+        if (nameToPlayerId) {
+          Object.entries(nameToPlayerId).forEach(([name, pid]) => {
+            if (!(name in combinedNameToPlayerId)) combinedNameToPlayerId[name] = pid;
+          });
+        }
+        if (playerIdToNames) {
+          Object.entries(playerIdToNames).forEach(([pid, namesSet]) => {
+            if (!combinedPlayerIdToNames[pid]) combinedPlayerIdToNames[pid] = new Set();
+            namesSet.forEach(n => combinedPlayerIdToNames[pid].add(n));
+          });
+        }
       });
 
       renderCountryData(combinedCounts);
       driverNationMap = combinedNameToNation;
+
+      // For each name in a source list, resolve its player_id (if known)
+      // and add every other name seen under that same player_id — so the
+      // flag/badge follows the account across renames, not just the exact
+      // string an admin typed in.
+      function expandNamesByPlayerId(namesIterable) {
+        const expanded = new Set();
+        for (const name of namesIterable) {
+          const nameKey = name.trim().toLowerCase();
+          expanded.add(nameKey);
+          const pid = combinedNameToPlayerId[nameKey];
+          if (pid && combinedPlayerIdToNames[pid]) {
+            combinedPlayerIdToNames[pid].forEach(n => expanded.add(n));
+          }
+        }
+        return expanded;
+      }
+
+      expandedFlaggedNameKeys = expandNamesByPlayerId(Object.keys(FLAGGED_DRIVERS));
+      expandedVerifiedNameKeys = expandNamesByPlayerId(VERIFIED_DRIVERS);
+
       refreshLeaderboardFlags();
     }
 
@@ -938,6 +997,17 @@
         if (raw) cached = JSON.parse(raw);
       } catch (err) {
         // Ignore corrupt cache
+      }
+
+      // localStorage only stores plain JSON — playerIdToNames was serialized
+      // as arrays for storage, so rebuild it into Sets here to match the
+      // shape fresh network results use.
+      if (cached && cached.playerIdToNames) {
+        const rebuilt = {};
+        Object.entries(cached.playerIdToNames).forEach(([pid, names]) => {
+          rebuilt[pid] = new Set(names);
+        });
+        cached.playerIdToNames = rebuilt;
       }
 
       if (cached && cached.nationCounts) {
@@ -986,8 +1056,8 @@
             }
           }
 
-          const { nationCounts, nameToNation, hadFailures } = result;
-          loadedTrackData[dataKey] = { nationCounts, nameToNation };
+          const { nationCounts, nameToNation, nameToPlayerId, playerIdToNames, hadFailures } = result;
+          loadedTrackData[dataKey] = { nationCounts, nameToNation, nameToPlayerId, playerIdToNames };
           recomputeAndRenderTrackData();
           // Don't persist a degraded result — if some session fetches
           // failed even after the retry, let the next visit try again
@@ -995,9 +1065,17 @@
           // cache.
           if (!hadFailures) {
             try {
+              // Sets don't survive JSON.stringify, so serialize
+              // playerIdToNames as plain arrays for storage.
+              const playerIdToNamesArrays = {};
+              Object.entries(playerIdToNames).forEach(([pid, namesSet]) => {
+                playerIdToNamesArrays[pid] = Array.from(namesSet);
+              });
               localStorage.setItem(cacheKey, JSON.stringify({
                 nationCounts,
                 nameToNation,
+                nameToPlayerId,
+                playerIdToNames: playerIdToNamesArrays,
                 timestamp: Date.now()
               }));
             } catch (err) {
@@ -1287,7 +1365,11 @@
         const flagHtml = flagUrl
           ? `<img class="lb-driver-flag" src="${flagUrl}" alt="${nation}" onerror="this.style.display='none'">`
           : (row.FullName ? `<span class="lb-driver-flag lb-driver-flag-unknown" title="Nationality unknown">🌍</span>` : "");
-        const verifiedHtml = (row.FullName && VERIFIED_DRIVERS.has(row.FullName))
+        const isVerified = row.FullName && (
+          VERIFIED_DRIVERS.has(row.FullName) ||
+          expandedVerifiedNameKeys.has(row.FullName.trim().toLowerCase())
+        );
+        const verifiedHtml = isVerified
           ? `<img class="lb-verified-badge" src="${VERIFIED_BADGE_URL}" alt="Verified" title="Verified driver">`
           : "";
         const driverTimesByDate = row.FullName ? totalTimesByDate[row.FullName.trim().toLowerCase()] : null;
@@ -1425,7 +1507,9 @@
     }
 
     function isFlagged(row) {
-      return Boolean(FLAGGED_DRIVERS[row.FullName] || FLAGGED_LAP_TIMES[row.BestLap]);
+      if (FLAGGED_DRIVERS[row.FullName] || FLAGGED_LAP_TIMES[row.BestLap]) return true;
+      const nameKey = row.FullName ? row.FullName.trim().toLowerCase() : null;
+      return Boolean(nameKey && expandedFlaggedNameKeys.has(nameKey));
     }
 
     async function loadServerName(track) {

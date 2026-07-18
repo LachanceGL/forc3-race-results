@@ -1414,12 +1414,49 @@
       titleEl.innerHTML = `${label} Top ${entryCount}<span class="leaderboard-track-badge">${badgeText}</span>`;
     }
 
-    function renderLeaderboardRows(rows) {
-      const LEADERBOARD_MAX_ENTRIES = 200;
+    const LEADERBOARD_MAX_ENTRIES = 200;
+
+    // Resolves a row's official Total Time (ms) the same way the Total Time
+    // column itself does — by name + the row's own session date — so
+    // sorting and display always agree with each other.
+    function resolveTotalTimeMs(row) {
+      if (row.FullName && INVALID_TOTAL_TIME_DRIVERS.has(row.FullName)) return null;
+      const totalTimesByDate = raceTotalTimeData[activeTrack] || {};
+      const driverTimesByDate = row.FullName ? totalTimesByDate[row.FullName.trim().toLowerCase()] : null;
+      const ms = driverTimesByDate ? driverTimesByDate[row.SessionDate] : null;
+      return ms == null || isNaN(ms) ? null : ms;
+    }
+
+    // Filters out flagged rows and, for Race-type leaderboards, ranks by
+    // official Total Time (ascending) instead of the /rows order — /rows
+    // is always ordered by Best Lap, which is the right ranking for hotlap
+    // boards but not for a race result, where finishing time is what
+    // actually determines position. Rows with no resolvable Total Time yet
+    // (e.g. still waiting on that fetch, or explicitly marked invalid) sort
+    // to the bottom rather than distorting the ranking with a "-".
+    function computeFilteredEntries(rows) {
       const cleanRows = rows.filter(row => !isFlagged(row));
-      currentLeaderboardEntries = cleanRows
+      const raceConfig = LEADERBOARDS[activeTrack];
+      const isRace = Boolean(raceConfig && raceConfig.isRace);
+
+      const orderedRows = isRace
+        ? cleanRows.slice().sort((a, b) => {
+            const aTime = resolveTotalTimeMs(a);
+            const bTime = resolveTotalTimeMs(b);
+            if (aTime == null && bTime == null) return 0;
+            if (aTime == null) return 1;
+            if (bTime == null) return -1;
+            return aTime - bTime;
+          })
+        : cleanRows;
+
+      return orderedRows
         .map((row, i) => ({ rank: i + 1, row }))
         .slice(0, LEADERBOARD_MAX_ENTRIES);
+    }
+
+    function renderLeaderboardRows(rows) {
+      currentLeaderboardEntries = computeFilteredEntries(rows);
 
       const searchInput = document.getElementById("leaderboard-search");
       if (searchInput) searchInput.value = "";
@@ -1449,10 +1486,18 @@
 
     document.getElementById("leaderboard-search").addEventListener("input", applyLeaderboardSearch);
 
-    // Called once driverNationMap has been (re)populated, so any leaderboard
-    // already on screen picks up flags without needing a re-fetch. Just
-    // re-runs the current search/filter state to redraw with the same rows.
+    // Called whenever new data that affects ranking/flagging/badges arrives
+    // asynchronously after the leaderboard was first rendered — driver
+    // nationality/identity propagation finishing, or (for Race-type boards)
+    // Total Time data loading in. Recomputes from the raw cached rows
+    // (not just the already-rendered entries) so a row can move rank,
+    // get filtered out, or gain/lose a badge without needing a reload.
     function refreshLeaderboardFlags() {
+      const rawRows = leaderboardCache[activeTrack];
+      if (rawRows) {
+        currentLeaderboardEntries = computeFilteredEntries(rawRows);
+        updateLeaderboardTitle(activeTrack, currentLeaderboardEntries.length);
+      }
       if (currentLeaderboardEntries.length > 0) {
         applyLeaderboardSearch();
       }

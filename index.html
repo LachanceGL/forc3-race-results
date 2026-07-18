@@ -127,7 +127,7 @@
       border-radius: 3px;
     }
     .cheater-notice {
-      display: none;
+      display: inline-flex;
       align-items: center;
       font-size: 11px;
       font-weight: 700;
@@ -135,12 +135,10 @@
       letter-spacing: 0.03em;
       color: #ff9900;
       background: rgba(255, 153, 0, 0.12);
-      padding: 6px 10px;
-      border-radius: 6px;
+      padding: 2px 8px;
+      border-radius: 4px;
       white-space: nowrap;
-    }
-    .cheater-notice.visible {
-      display: inline-flex;
+      margin-left: 8px;
     }
     .leaderboard-search-input {
       display: block;
@@ -650,7 +648,6 @@
   </div>
   <div class="leaderboard-toolbar">
     <h3 class="leaderboard-title" id="leaderboard-title"></h3>
-    <span class="cheater-notice" id="cheater-notice">💀 Cheaters will be flagged</span>
     <input
       type="text"
       id="leaderboard-search"
@@ -1266,7 +1263,10 @@
 
       const badgeText = config.updateNote || config.displayName || track;
       const label = config.title || "Hotlap";
-      titleEl.innerHTML = `${label} Top ${entryCount}<span class="leaderboard-track-badge">${badgeText}</span>`;
+      const cheaterNoticeHtml = track === "nordschleife"
+        ? `<span class="cheater-notice">💀 Cheaters will be flagged</span>`
+        : "";
+      titleEl.innerHTML = `${label} Top ${entryCount}<span class="leaderboard-track-badge">${badgeText}</span>${cheaterNoticeHtml}`;
     }
 
     function renderLeaderboardRows(rows) {
@@ -1446,8 +1446,6 @@
       document.getElementById("leaderboard-server-name-text").textContent = serverNameCache[track] || "";
       document.getElementById("live-player-count").textContent = "";
       liveBadgeEl.classList.remove("visible", "offline", "deactivated");
-      const cheaterNoticeEl = document.getElementById("cheater-notice");
-      if (cheaterNoticeEl) cheaterNoticeEl.classList.toggle("visible", track === "nordschleife");
       loadLeaderboard(track);
       loadServerName(track);
       ensureTrackDataLoaded(track);
@@ -1469,10 +1467,6 @@
       document.querySelectorAll(".leaderboard-tab").forEach(t => {
         t.classList.toggle("active", t.dataset.track === initialTrack);
       });
-    }
-    {
-      const cheaterNoticeEl = document.getElementById("cheater-notice");
-      if (cheaterNoticeEl) cheaterNoticeEl.classList.toggle("visible", activeTrack === "nordschleife");
     }
 
     // Give legacy (deactivated) tracks' tabs a darker, muted look so they

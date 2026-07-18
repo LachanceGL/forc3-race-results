@@ -371,6 +371,7 @@
       letter-spacing: 0.04em;
       opacity: 0.6;
       margin-top: 2px;
+      text-decoration: underline;
     }
     .leaderboard-tab:hover {
       background: #e63946;
@@ -945,13 +946,19 @@
 
       const barTrackEl = document.getElementById("loading-bar-track");
       const barFillEl = document.getElementById("loading-bar-fill");
+      // Only show progress for a genuine cold load (no usable cache yet).
+      // When we already have cached data on screen, this fetch is just a
+      // silent background revalidation — showing a progress bar for that
+      // would make an already-loaded page look like it's re-loading from
+      // scratch, which is confusing on a 2nd+ visit.
+      const hadCache = Boolean(cached && cached.nationCounts);
       const showProgress = (completed, total) => {
-        if (!barTrackEl || !barFillEl || !total) return;
+        if (hadCache || !barTrackEl || !barFillEl || !total) return;
         barTrackEl.classList.add("visible");
         barFillEl.style.width = `${Math.min(100, (completed / total) * 100)}%`;
       };
       const hideProgress = () => {
-        if (!barTrackEl || !barFillEl) return;
+        if (hadCache || !barTrackEl || !barFillEl) return;
         barTrackEl.classList.remove("visible");
         barFillEl.style.width = "0%";
       };
@@ -1184,7 +1191,9 @@
       "Jonathan Lara": "Cheater, will be removed",
       "V3mund V": "Cheater, will be removed",
       "Cheng Lee": "Cheater, will be removed",
-      "Sakélaris Van Steelant": "Cheater, will be removed"
+      "Sakélaris Van Steelant": "Cheater, will be removed",
+      "Dennis Ropinski": "Cheater, will be removed",
+      "Pham Vu": "Cheater, will be removed"
     };
 
     // For entries with no driver name (shown as "—"), flag by exact BestLap time instead,

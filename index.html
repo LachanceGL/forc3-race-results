@@ -166,6 +166,13 @@
       letter-spacing: 0.03em;
       color: #4ade80;
     }
+    .live-player-count {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: #4ade80;
+    }
     .live-badge.visible {
       display: inline-flex;
     }
@@ -622,6 +629,7 @@
   </div>
   <div class="leaderboard-server-name" id="leaderboard-server-name">
     <span class="live-badge" id="server-live-badge"><span class="live-dot"></span>Online</span>
+    <span class="live-player-count" id="live-player-count"></span>
     <span id="leaderboard-server-name-text"></span>
   </div>
   <div class="leaderboard-toolbar">
@@ -1112,6 +1120,27 @@
     const serverNameCache = {};
     let activeTrack = "nordschleife";
 
+    // Live player counts per track, from the bot's own status embeds
+    // (populated by loadDiscordStats). Only shown alongside a genuine
+    // "Online" status — never next to Offline/Inactive.
+    let discordPlayerCounts = {};
+
+    function updatePlayerCountDisplay(track) {
+      const countEl = document.getElementById("live-player-count");
+      if (!countEl || activeTrack !== track) return;
+
+      const liveBadgeEl = document.getElementById("server-live-badge");
+      const isGenuinelyOnline = liveBadgeEl &&
+        liveBadgeEl.classList.contains("visible") &&
+        !liveBadgeEl.classList.contains("offline") &&
+        !liveBadgeEl.classList.contains("deactivated");
+
+      const count = discordPlayerCounts[track];
+      countEl.textContent = (isGenuinelyOnline && count != null)
+        ? `(${count} Player${count === 1 ? "" : "s"} Online)`
+        : "";
+    }
+
     // Incremented every time loadLeaderboard() is called. Lets an in-flight
     // fetch detect that a newer request has since started (even for the
     // SAME track, e.g. switching away and back before the first fetch
@@ -1328,6 +1357,8 @@
           liveBadgeEl.classList.remove("offline");
           liveBadgeEl.classList.add("visible", "deactivated");
           liveBadgeEl.innerHTML = '<span class="live-dot"></span>Inactive';
+          const countEl = document.getElementById("live-player-count");
+          if (countEl) countEl.textContent = "";
         }
         return;
       }
@@ -1338,6 +1369,7 @@
           liveBadgeEl.classList.remove("offline");
           liveBadgeEl.classList.add("visible");
           liveBadgeEl.innerHTML = '<span class="live-dot"></span>Online';
+          updatePlayerCountDisplay(track);
         }
         return;
       }
@@ -1363,6 +1395,7 @@
             liveBadgeEl.classList.remove("offline");
             liveBadgeEl.classList.add("visible");
             liveBadgeEl.innerHTML = '<span class="live-dot"></span>Online';
+            updatePlayerCountDisplay(track);
           }
         }
       } catch (err) {
@@ -1371,6 +1404,8 @@
         if (activeTrack === track) {
           liveBadgeEl.classList.add("visible", "offline");
           liveBadgeEl.innerHTML = '<span class="live-dot"></span>Offline';
+          const countEl = document.getElementById("live-player-count");
+          if (countEl) countEl.textContent = "";
         }
       }
     }
@@ -1382,6 +1417,7 @@
       });
       const liveBadgeEl = document.getElementById("server-live-badge");
       document.getElementById("leaderboard-server-name-text").textContent = serverNameCache[track] || "";
+      document.getElementById("live-player-count").textContent = "";
       liveBadgeEl.classList.remove("visible", "offline", "deactivated");
       loadLeaderboard(track);
       loadServerName(track);
@@ -1463,6 +1499,9 @@
         }
 
         statsEl.innerHTML = parts.join(" &nbsp;·&nbsp; ");
+
+        discordPlayerCounts = data.server_players || {};
+        updatePlayerCountDisplay(activeTrack);
       } catch (err) {
         // Fail silently — the Discord button still works fine without stats.
         statsEl.textContent = "";

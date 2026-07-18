@@ -1519,6 +1519,12 @@
     }
 
     loadDiscordStats();
+
+    // Re-fetch every 90s so the member/online/player counts stay live while
+    // someone has the tab open, instead of freezing at whatever they were
+    // on page load. The Worker's edge cache (2 min, matching the bot's own
+    // refresh rate) absorbs the actual Discord API load, so this is cheap.
+    setInterval(loadDiscordStats, 90 * 1000);
   </script>
 </body>
 </html>

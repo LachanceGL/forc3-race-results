@@ -95,6 +95,149 @@
       margin-right: 4px;
     }
 
+    .get-verified-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 153, 0, 0.12);
+      border: 1px solid rgba(255, 153, 0, 0.35);
+      color: #ff9900;
+      padding: 7px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    .get-verified-link:hover {
+      background: rgba(255, 153, 0, 0.2);
+    }
+    .get-verified-badge-icon {
+      width: 15px;
+      height: 15px;
+    }
+
+    .verify-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .verify-modal-overlay.visible {
+      display: flex;
+    }
+    .verify-modal {
+      position: relative;
+      background: var(--surface-1);
+      border: 1px solid #2e2e2e;
+      border-radius: 10px;
+      padding: 28px;
+      width: 100%;
+      max-width: 420px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .verify-modal h3 {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0 0 6px;
+      font-size: 18px;
+      color: #eee;
+    }
+    .verify-modal-badge-icon {
+      width: 20px;
+      height: 20px;
+    }
+    .verify-modal-subtitle {
+      color: #999;
+      font-size: 13px;
+      margin: 0 0 20px;
+    }
+    .verify-modal-close {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      background: none;
+      border: none;
+      color: #999;
+      font-size: 22px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 4px;
+    }
+    .verify-modal-close:hover {
+      color: #eee;
+    }
+    .verify-field {
+      margin-bottom: 14px;
+    }
+    .verify-field label {
+      display: block;
+      color: #999;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-bottom: 6px;
+    }
+    .verify-field input,
+    .verify-field select,
+    .verify-field textarea {
+      width: 100%;
+      background: var(--surface-2);
+      border: 1px solid #333;
+      color: #eee;
+      padding: 9px 10px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      box-sizing: border-box;
+      resize: vertical;
+    }
+    .verify-field input:focus,
+    .verify-field select:focus,
+    .verify-field textarea:focus {
+      border-color: #e63946;
+    }
+    .verify-field input::placeholder,
+    .verify-field textarea::placeholder {
+      color: #555;
+    }
+    .verify-modal-error {
+      display: none;
+      color: #ff8080;
+      font-size: 13px;
+      margin-bottom: 14px;
+    }
+    .verify-modal-error.visible {
+      display: block;
+    }
+    .verify-submit-btn {
+      width: 100%;
+      background: #e63946;
+      border: none;
+      color: #fff;
+      padding: 11px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    .verify-submit-btn:hover {
+      background: #ff5a68;
+    }
+    .verify-submit-btn:disabled {
+      background: #555;
+      cursor: not-allowed;
+    }
+
     .leaderboard-toolbar {
       display: flex;
       align-items: center;
@@ -664,6 +807,10 @@
         </svg>
         GT3FORC3 DISCORD
       </a>
+      <button type="button" class="get-verified-link" id="get-verified-btn">
+        <img src="https://raw.githubusercontent.com/LachanceGL/gt3forc3-website/refs/heads/main/GT3FORC3_VerifiedBadge01.png" alt="" class="get-verified-badge-icon">
+        Get Verified
+      </button>
       <div class="discord-stats" id="discord-stats"></div>
     </div>
   </div>
@@ -692,7 +839,7 @@
     <h3 class="leaderboard-title" id="leaderboard-title"></h3>
     <span class="cheater-notice" id="cheater-notice">
       ⚠ Anomalies will be flagged
-      <span class="cheater-notice-tooltip">There are cheaters, but glitches can happen too. If you believe your name was flagged by mistake (meaning you don't see it), come to our Discord so we can look into it.</span>
+      <span class="cheater-notice-tooltip">There are cheaters, but glitches can happen too. If you believe your name was flagged by mistake, come to our Discord so we can look into it.</span>
     </span>
     <input
       type="text"
@@ -725,6 +872,42 @@
       Join our Discord
     </a>
   </footer>
+
+  <div class="verify-modal-overlay" id="verify-modal-overlay">
+    <div class="verify-modal" role="dialog" aria-modal="true" aria-labelledby="verify-modal-title">
+      <button type="button" class="verify-modal-close" id="verify-modal-close" aria-label="Close">&times;</button>
+      <h3 id="verify-modal-title">
+        <img src="https://raw.githubusercontent.com/LachanceGL/gt3forc3-website/refs/heads/main/GT3FORC3_VerifiedBadge01.png" alt="" class="verify-modal-badge-icon">
+        Get Verified
+      </h3>
+      <p class="verify-modal-subtitle">Tell us who you are and we'll reach out on Discord to confirm.</p>
+
+      <div class="verify-field">
+        <label for="verify-discord">Discord username</label>
+        <input type="text" id="verify-discord" placeholder="e.g. yourname" maxlength="100">
+      </div>
+      <div class="verify-field">
+        <label for="verify-driver-name">In-game driver name</label>
+        <input type="text" id="verify-driver-name" placeholder="Exactly as shown on the leaderboard" maxlength="100">
+      </div>
+      <div class="verify-field">
+        <label for="verify-track">Track</label>
+        <select id="verify-track">
+          <option value="Nordschleife">Nordschleife</option>
+          <option value="Spa Francorchamps">Spa Francorchamps</option>
+          <option value="Red Bull Ring">Red Bull Ring</option>
+        </select>
+      </div>
+      <div class="verify-field">
+        <label for="verify-message">Anything else? (optional)</label>
+        <textarea id="verify-message" placeholder="Links, context, proof, etc." maxlength="500" rows="3"></textarea>
+      </div>
+
+      <div class="verify-modal-error" id="verify-modal-error"></div>
+
+      <button type="button" class="verify-submit-btn" id="verify-submit-btn">Submit Request</button>
+    </div>
+  </div>
 
   <script>
     const WORKER_URL = "https://raspy-salad-d894.contact-eb9.workers.dev";
@@ -1844,6 +2027,83 @@
         cheaterNoticeToggleEl.classList.remove("tooltip-open");
       });
     }
+
+    // ---- Get Verified modal ----
+    const verifyModalOverlay = document.getElementById("verify-modal-overlay");
+    const verifyModalError = document.getElementById("verify-modal-error");
+    const verifySubmitBtn = document.getElementById("verify-submit-btn");
+    const verifyFields = {
+      discord: document.getElementById("verify-discord"),
+      driverName: document.getElementById("verify-driver-name"),
+      track: document.getElementById("verify-track"),
+      message: document.getElementById("verify-message")
+    };
+
+    function openVerifyModal() {
+      verifyModalError.classList.remove("visible");
+      verifyModalError.textContent = "";
+      verifySubmitBtn.disabled = false;
+      verifySubmitBtn.textContent = "Submit Request";
+      verifyModalOverlay.classList.add("visible");
+    }
+
+    function closeVerifyModal() {
+      verifyModalOverlay.classList.remove("visible");
+    }
+
+    const getVerifiedBtn = document.getElementById("get-verified-btn");
+    if (getVerifiedBtn) getVerifiedBtn.addEventListener("click", openVerifyModal);
+
+    document.getElementById("verify-modal-close").addEventListener("click", closeVerifyModal);
+
+    // Close on backdrop click, but not when clicking inside the modal itself.
+    verifyModalOverlay.addEventListener("click", (e) => {
+      if (e.target === verifyModalOverlay) closeVerifyModal();
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && verifyModalOverlay.classList.contains("visible")) {
+        closeVerifyModal();
+      }
+    });
+
+    verifySubmitBtn.addEventListener("click", async () => {
+      const discordUsername = verifyFields.discord.value.trim();
+      const driverName = verifyFields.driverName.value.trim();
+      const track = verifyFields.track.value;
+      const message = verifyFields.message.value.trim();
+
+      if (!discordUsername || !driverName) {
+        verifyModalError.textContent = "Please fill in your Discord username and in-game driver name.";
+        verifyModalError.classList.add("visible");
+        return;
+      }
+
+      verifyModalError.classList.remove("visible");
+      verifySubmitBtn.disabled = true;
+      verifySubmitBtn.textContent = "Submitting...";
+
+      try {
+        const res = await fetch(WORKER_URL + "/discord/verify-request", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ discordUsername, driverName, track, message })
+        });
+
+        if (!res.ok) throw new Error("Request failed");
+
+        verifySubmitBtn.textContent = "Sent! We'll be in touch.";
+        Object.values(verifyFields).forEach(el => {
+          if (el.tagName !== "SELECT") el.value = "";
+        });
+        setTimeout(closeVerifyModal, 1800);
+      } catch (err) {
+        verifyModalError.textContent = "Something went wrong sending your request — please try again, or reach out on Discord directly.";
+        verifyModalError.classList.add("visible");
+        verifySubmitBtn.disabled = false;
+        verifySubmitBtn.textContent = "Submit Request";
+      }
+    });
   </script>
 </body>
 </html>

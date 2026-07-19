@@ -774,7 +774,7 @@
       return `https://www.hltv.org/img/static/flags/30x20/${iso2}.gif`;
     }
 
-    const COUNTRY_CACHE_KEY = "gt3_country_data_v9";
+    const COUNTRY_CACHE_KEY = "gt3_country_data_v10";
     const COUNTRY_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
     function renderCountryData(nationCounts) {
@@ -860,6 +860,15 @@
       const nameToPlayerId = {};
       const playerIdToNames = {};
 
+      // player_id -> nation, taking whichever nation was set on their MOST
+      // RECENT session overall (sessions are processed newest-first, so
+      // "first seen for this player_id" already means "most recent"). A
+      // leaderboard row can be frozen under an old name from long ago, but
+      // the flag next to it should show the driver's current nationality,
+      // not whatever nation happened to be set back when that old name was
+      // last used — this is what makes that possible.
+      const playerIdToNation = {};
+
       const listRes = await fetch(WORKER_URL + workerPrefix + "/api/v1/results");
       if (!listRes.ok) throw new Error("Server returned " + listRes.status);
       const listData = await listRes.json();
@@ -909,6 +918,10 @@
             playerIdToNames[driver.player_id].add(nameKey);
           }
 
+          if (driver.player_id && nation && !(driver.player_id in playerIdToNation)) {
+            playerIdToNation[driver.player_id] = nation;
+          }
+
           if (seenPlayers.has(key)) return;
           seenPlayers.add(key);
 
@@ -917,7 +930,7 @@
         });
       }
 
-      return { nationCounts, nameToNation, nameToPlayerId, playerIdToNames, hadFailures };
+      return { nationCounts, nameToNation, nameToPlayerId, playerIdToNames, playerIdToNation, hadFailures };
     }
 
     // Holds each track's fetched nation data once loaded, keyed by track id
@@ -949,8 +962,9 @@
       const combinedNameToNation = {};
       const combinedNameToPlayerId = {};
       const combinedPlayerIdToNames = {};
+      const combinedPlayerIdToNation = {};
 
-      Object.values(loadedTrackData).forEach(({ nationCounts, nameToNation, nameToPlayerId, playerIdToNames }) => {
+      Object.values(loadedTrackData).forEach(({ nationCounts, nameToNation, nameToPlayerId, playerIdToNames, playerIdToNation }) => {
         Object.entries(nationCounts).forEach(([code, count]) => {
           combinedCounts[code] = (combinedCounts[code] || 0) + count;
         });
@@ -968,10 +982,29 @@
             namesSet.forEach(n => combinedPlayerIdToNames[pid].add(n));
           });
         }
+        if (playerIdToNation) {
+          Object.entries(playerIdToNation).forEach(([pid, nation]) => {
+            if (!(pid in combinedPlayerIdToNation)) combinedPlayerIdToNation[pid] = nation;
+          });
+        }
       });
 
       renderCountryData(combinedCounts);
-      driverNationMap = combinedNameToNation;
+
+      // Start from the plain per-name lookup, then override every name
+      // variant of a known account with that account's most recent
+      // nation — so a leaderboard row still showing an old, renamed-away
+      // name displays the driver's CURRENT flag rather than whatever
+      // nation happened to be set back when that old name was last used.
+      // If the driver genuinely changed country, this override is exactly
+      // what picks that change up.
+      const finalNameToNation = { ...combinedNameToNation };
+      Object.entries(combinedPlayerIdToNames).forEach(([pid, namesSet]) => {
+        const currentNation = combinedPlayerIdToNation[pid];
+        if (!currentNation) return;
+        namesSet.forEach(name => { finalNameToNation[name] = currentNation; });
+      });
+      driverNationMap = finalNameToNation;
 
       // For each name in a source list, resolve its player_id (if known)
       // and add every other name seen under that same player_id — so the
@@ -1091,8 +1124,8 @@
             }
           }
 
-          const { nationCounts, nameToNation, nameToPlayerId, playerIdToNames, hadFailures } = result;
-          loadedTrackData[dataKey] = { nationCounts, nameToNation, nameToPlayerId, playerIdToNames };
+          const { nationCounts, nameToNation, nameToPlayerId, playerIdToNames, playerIdToNation, hadFailures } = result;
+          loadedTrackData[dataKey] = { nationCounts, nameToNation, nameToPlayerId, playerIdToNames, playerIdToNation };
           recomputeAndRenderTrackData();
           // Don't persist a degraded result — if some session fetches
           // failed even after the retry, let the next visit try again
@@ -1111,6 +1144,7 @@
                 nameToNation,
                 nameToPlayerId,
                 playerIdToNames: playerIdToNamesArrays,
+                playerIdToNation,
                 timestamp: Date.now()
               }));
             } catch (err) {

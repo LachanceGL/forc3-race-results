@@ -128,6 +128,7 @@
     }
     .cheater-notice {
       display: none;
+      position: relative;
       align-items: center;
       font-size: 11px;
       font-weight: 700;
@@ -138,9 +139,40 @@
       padding: 6px 10px;
       border-radius: 6px;
       white-space: nowrap;
+      cursor: help;
     }
     .cheater-notice.visible {
       display: inline-flex;
+    }
+    .cheater-notice-tooltip {
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      z-index: 5;
+      width: 260px;
+      max-width: 80vw;
+      background: #2a1a05;
+      border: 1px solid rgba(255, 153, 0, 0.35);
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: #ff9900;
+      font-size: 12px;
+      font-weight: 400;
+      text-transform: none;
+      letter-spacing: normal;
+      white-space: normal;
+      line-height: 1.4;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.15s ease;
+      pointer-events: none;
+    }
+    /* Desktop: reveal on hover. Mobile has no hover state, so tapping the
+       badge instead toggles the .tooltip-open class via JS below. */
+    .cheater-notice:hover .cheater-notice-tooltip,
+    .cheater-notice.tooltip-open .cheater-notice-tooltip {
+      opacity: 1;
+      visibility: visible;
     }
     .leaderboard-search-input {
       display: block;
@@ -658,7 +690,10 @@
   </div>
   <div class="leaderboard-toolbar">
     <h3 class="leaderboard-title" id="leaderboard-title"></h3>
-    <span class="cheater-notice" id="cheater-notice">⚠ Anomalies will be flagged</span>
+    <span class="cheater-notice" id="cheater-notice">
+      ⚠ Anomalies will be flagged
+      <span class="cheater-notice-tooltip">There are cheaters, but glitches can happen too. If you believe your name was flagged by mistake, come to our Discord so we can look into it.</span>
+    </span>
     <input
       type="text"
       id="leaderboard-search"
@@ -1743,6 +1778,21 @@
     // on page load. The Worker's edge cache (2 min, matching the bot's own
     // refresh rate) absorbs the actual Discord API load, so this is cheap.
     setInterval(loadDiscordStats, 90 * 1000);
+
+    // The anomalies-notice tooltip works via CSS :hover on desktop, but
+    // mobile has no hover state — a tap fires a click instead, so toggle a
+    // class to show/hide it there, and close it again on a tap anywhere
+    // else on the page.
+    const cheaterNoticeToggleEl = document.getElementById("cheater-notice");
+    if (cheaterNoticeToggleEl) {
+      cheaterNoticeToggleEl.addEventListener("click", (e) => {
+        e.stopPropagation();
+        cheaterNoticeToggleEl.classList.toggle("tooltip-open");
+      });
+      document.addEventListener("click", () => {
+        cheaterNoticeToggleEl.classList.remove("tooltip-open");
+      });
+    }
   </script>
 </body>
 </html>

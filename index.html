@@ -994,7 +994,7 @@
     <h3 class="leaderboard-title" id="leaderboard-title"></h3>
     <span class="cheater-notice" id="cheater-notice">
       ⚠ Anomalies will be flagged
-      <span class="cheater-notice-tooltip">There are cheaters, but glitches can happen too. If you don't see your name and believe it was flagged by mistake, come to our Discord so we can look into it.</span>
+      <span class="cheater-notice-tooltip" id="cheater-notice-tooltip-text">There are cheaters, but glitches can happen too. If you don't see your name and believe it was flagged by mistake, come to our Discord so we can look into it.</span>
     </span>
     <input
       type="text"
@@ -2383,6 +2383,20 @@
       }
     }
 
+    // The base anomalies tooltip explains the cheater-flagging system; on
+    // Race-type leaderboards, append a note about the lap-completion
+    // filter too, since that's a second, distinct reason a driver might
+    // not appear that only applies there.
+    const CHEATER_TOOLTIP_BASE = "There are cheaters, but glitches can happen too. If you don't see your name and believe it was flagged by mistake, come to our Discord so we can look into it.";
+    function updateCheaterTooltipText(track) {
+      const tooltipEl = document.getElementById("cheater-notice-tooltip-text");
+      if (!tooltipEl) return;
+      const config = LEADERBOARDS[track];
+      tooltipEl.textContent = (config && config.isRace)
+        ? `${CHEATER_TOOLTIP_BASE} Only Completed Race will show up.`
+        : CHEATER_TOOLTIP_BASE;
+    }
+
     function switchToTrack(track) {
       if (!LEADERBOARDS[track]) return;
       document.querySelectorAll(".leaderboard-tab").forEach(t => {
@@ -2394,6 +2408,7 @@
       liveBadgeEl.classList.remove("visible", "offline", "deactivated");
       const cheaterNoticeEl = document.getElementById("cheater-notice");
       if (cheaterNoticeEl) cheaterNoticeEl.classList.toggle("visible", Boolean(LEADERBOARDS[track]));
+      updateCheaterTooltipText(track);
 
       // Reset to the default rank mode whenever the active track changes —
       // "which metric ranks this board" shouldn't carry over from a
@@ -2432,6 +2447,7 @@
     {
       const cheaterNoticeEl = document.getElementById("cheater-notice");
       if (cheaterNoticeEl) cheaterNoticeEl.classList.toggle("visible", Boolean(LEADERBOARDS[activeTrack]));
+      updateCheaterTooltipText(activeTrack);
     }
     {
       const rankToggleRowEl = document.getElementById("rank-toggle-row");

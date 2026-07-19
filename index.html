@@ -791,9 +791,9 @@
       const subtitleEl = document.getElementById("country-subtitle");
       if (subtitleEl) {
         const driverCountHtml = uniqueDriverCount
-          ? ` &nbsp;·&nbsp; 🏁 <span class="country-count-number">${uniqueDriverCount}</span> Unique Drivers`
+          ? `🏁 <span class="country-count-number">${uniqueDriverCount}</span> Unique Drivers &nbsp;·&nbsp; `
           : "";
-        subtitleEl.innerHTML = `🌍 <span class="country-count-number">${nations.length}</span> Countries Represented${driverCountHtml}`;
+        subtitleEl.innerHTML = `${driverCountHtml}🌍 <span class="country-count-number">${nations.length}</span> Countries Represented`;
       }
 
       const grid = document.createElement("div");

@@ -642,6 +642,40 @@
       font-weight: 700;
     }
 
+    .crash-report-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 10px;
+      margin-top: 4px;
+    }
+    .crash-stat-card {
+      background: var(--surface-2);
+      border-radius: 8px;
+      padding: 12px 14px;
+    }
+    .crash-stat-label {
+      color: #999;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-bottom: 4px;
+    }
+    .crash-stat-value {
+      color: #e63946;
+      font-size: 20px;
+      font-weight: 700;
+    }
+    .crash-stat-detail {
+      color: #999;
+      font-size: 12px;
+      margin-top: 2px;
+    }
+    .crash-report-empty {
+      color: #999;
+      font-size: 13px;
+    }
+
     .section-box {
       background: var(--surface-1);
       border: 1px solid #2e2e2e;
@@ -898,6 +932,12 @@
   </div>
   <div id="leaderboard-status"></div>
   <div id="leaderboard-frame" class="leaderboard-frame"></div>
+
+  <div class="section-box" id="crash-report-section">
+    <h2 class="section-title">🚨 Crash Report</h2>
+    <div class="section-subtitle" id="crash-report-subtitle">Most recent session</div>
+    <div id="crash-report-content"></div>
+  </div>
 
   <div class="section-box">
     <h2 class="section-title">GT3FORC3 DRIVERS AROUND THE WORLD</h2>
@@ -1565,6 +1605,159 @@
       return fetchPromise;
     }
 
+    // ---- Crash Report (most recent session's collision data) ----
+
+    // Below this impact speed, a logged "collision" is almost always just
+    // resting/scraping contact (a car sitting against a wall, wheel-to-wheel
+    // touching at parking speed) rather than a real hit — confirmed by
+    // checking a real session's data, where roughly 40% of all entries were
+    // under 1 km/h. 15 km/h is a reasonable line for "this was an actual
+    // impact worth counting."
+    const CRASH_IMPACT_THRESHOLD_KMH = 15;
+
+    const crashReportData = {};
+    const crashReportLoadedAt = {};
+    const pendingCrashReportFetch = {};
+    const CRASH_REPORT_TTL_MS = 3 * 60 * 1000; // 3 minutes, same reasoning as race total times
+
+    async function fetchCrashReport(workerPrefix) {
+      const listRes = await fetch(WORKER_URL + workerPrefix + "/api/v1/results");
+      if (!listRes.ok) throw new Error("Server returned " + listRes.status);
+      const listData = await listRes.json();
+
+      const sessions = (listData.results || [])
+        .slice()
+        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+      if (sessions.length === 0) return null;
+
+      // Only the single most recent session — collisions arrays are large
+      // (thousands of entries per session), so scanning full history the
+      // way the driver/country scan does would be far too expensive here.
+      const latest = sessions[0];
+      const detail = await fetchWithRetry(WORKER_URL + workerPrefix + latest.download_url, 3);
+
+      const collisions = detail.collisions || [];
+      if (collisions.length === 0) {
+        return {
+          sessionType: detail.session_type,
+          sessionDate: (latest.timestamp || "").slice(0, 10),
+          totalIncidents: 0
+        };
+      }
+
+      // Resolve car_id -> driver name via the same join used for Total
+      // Time: car_standings and driver_standings share index positions,
+      // and driver_standings holds the guid that identifies the driver.
+      const nameByGuid = {};
+      (detail.drivers || []).forEach(d => {
+        if (!d.guid) return;
+        nameByGuid[`${d.guid.a}-${d.guid.b}`] = `${d.first_name || ""} ${d.last_name || ""}`.trim();
+      });
+      const nameByCarId = {};
+      (detail.car_standings || []).forEach((car, i) => {
+        if (!car.car_id) return;
+        const guid = (detail.driver_standings || [])[i];
+        if (!guid) return;
+        const name = nameByGuid[`${guid.a}-${guid.b}`];
+        if (name) nameByCarId[`${car.car_id.a}-${car.car_id.b}`] = name;
+      });
+
+      const realHits = collisions.filter(c => (c.relative_impact_kmh || 0) >= CRASH_IMPACT_THRESHOLD_KMH);
+
+      const countsByDriver = {};
+      let highest = null;
+      realHits.forEach(c => {
+        const carKey = c.car_id ? `${c.car_id.a}-${c.car_id.b}` : null;
+        const driverName = carKey ? (nameByCarId[carKey] || "Unknown driver") : "Unknown driver";
+        countsByDriver[driverName] = (countsByDriver[driverName] || 0) + 1;
+        if (!highest || c.relative_impact_kmh > highest.relative_impact_kmh) {
+          highest = { relative_impact_kmh: c.relative_impact_kmh, driverName };
+        }
+      });
+
+      let topDriver = null;
+      Object.entries(countsByDriver).forEach(([name, count]) => {
+        if (!topDriver || count > topDriver.count) topDriver = { name, count };
+      });
+
+      return {
+        sessionType: detail.session_type,
+        sessionDate: (latest.timestamp || "").slice(0, 10),
+        totalIncidents: realHits.length,
+        topDriver,
+        highest
+      };
+    }
+
+    function renderCrashReport() {
+      const subtitleEl = document.getElementById("crash-report-subtitle");
+      const contentEl = document.getElementById("crash-report-content");
+      if (!subtitleEl || !contentEl) return;
+
+      const data = crashReportData[activeTrack];
+      if (!data) {
+        contentEl.innerHTML = `<div class="crash-report-empty">Loading crash data...</div>`;
+        return;
+      }
+
+      subtitleEl.textContent = `${data.sessionType || "Session"} · ${formatSessionDate(data.sessionDate)}`;
+
+      if (!data.totalIncidents) {
+        contentEl.innerHTML = `<div class="crash-report-empty">No significant incidents in the most recent session. 🎉</div>`;
+        return;
+      }
+
+      contentEl.innerHTML = `
+        <div class="crash-report-grid">
+          <div class="crash-stat-card">
+            <div class="crash-stat-label">Real Incidents</div>
+            <div class="crash-stat-value">${data.totalIncidents}</div>
+            <div class="crash-stat-detail">≥ ${CRASH_IMPACT_THRESHOLD_KMH} km/h impact</div>
+          </div>
+          <div class="crash-stat-card">
+            <div class="crash-stat-label">Most Incidents</div>
+            <div class="crash-stat-value">${data.topDriver ? data.topDriver.count : "-"}</div>
+            <div class="crash-stat-detail">${data.topDriver ? data.topDriver.name : "-"}</div>
+          </div>
+          <div class="crash-stat-card">
+            <div class="crash-stat-label">Highest Impact</div>
+            <div class="crash-stat-value">${data.highest ? Math.round(data.highest.relative_impact_kmh) + " km/h" : "-"}</div>
+            <div class="crash-stat-detail">${data.highest ? data.highest.driverName : "-"}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    async function ensureCrashReportLoaded(trackId) {
+      const config = LEADERBOARDS[trackId];
+      if (!config) return;
+
+      const loadedAt = crashReportLoadedAt[trackId];
+      if (loadedAt && Date.now() - loadedAt < CRASH_REPORT_TTL_MS) {
+        renderCrashReport();
+        return;
+      }
+
+      if (pendingCrashReportFetch[trackId]) return pendingCrashReportFetch[trackId];
+
+      const fetchPromise = (async () => {
+        try {
+          crashReportData[trackId] = await fetchCrashReport(config.workerPrefix);
+          crashReportLoadedAt[trackId] = Date.now();
+        } catch (err) {
+          // Leave any previously-loaded data in place rather than wiping
+          // it out on a transient failure.
+        } finally {
+          delete pendingCrashReportFetch[trackId];
+        }
+        renderCrashReport();
+      })();
+
+      pendingCrashReportFetch[trackId] = fetchPromise;
+      return fetchPromise;
+    }
+
     const LEADERBOARDS = {
       nordschleife: {
         workerPrefix: "/server1",
@@ -2044,6 +2237,7 @@
       loadServerName(track);
       ensureTrackDataLoaded(track);
       ensureRaceTotalTimesLoaded(track);
+      ensureCrashReportLoaded(track);
     }
 
     // Clicking a tab just changes the URL hash (native <a> behavior);
@@ -2105,6 +2299,7 @@
     })();
 
     ensureRaceTotalTimesLoaded(activeTrack);
+    ensureCrashReportLoaded(activeTrack);
     loadLeaderboard(activeTrack);
 
     document.getElementById("copyright").textContent =

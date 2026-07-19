@@ -1911,10 +1911,38 @@
       }
     }
 
+    // Parses a "M:SS.mmm" BestLap string (e.g. "5:53.793") into total
+    // milliseconds. Returns null if the string doesn't match that shape.
+    function parseLapTimeToMs(timeStr) {
+      if (!timeStr) return null;
+      const match = String(timeStr).match(/^(\d+):(\d{1,2}(?:\.\d+)?)$/);
+      if (!match) return null;
+      const minutes = parseInt(match[1], 10);
+      const seconds = parseFloat(match[2]);
+      return (minutes * 60 + seconds) * 1000;
+    }
+
+    // Any lap faster than this on a given track is treated as physically
+    // impossible (a glitch/exploit, not a real drive) and hidden from the
+    // leaderboard entirely — same as an explicitly flagged driver. Only
+    // set for tracks where a hard floor makes sense; a track with no entry
+    // here has no minimum-time filtering applied.
+    const MIN_VALID_LAP_MS = {
+      nordschleife: 6 * 60 * 1000 // 6:00.000 — the Nordschleife TF layout is ~26km, so anything under this is not a real lap
+    };
+
     function isFlagged(row) {
       if (FLAGGED_DRIVERS[row.FullName] || FLAGGED_LAP_TIMES[row.BestLap]) return true;
       const nameKey = row.FullName ? row.FullName.trim().toLowerCase() : null;
-      return Boolean(nameKey && expandedFlaggedNameKeys.has(nameKey));
+      if (nameKey && expandedFlaggedNameKeys.has(nameKey)) return true;
+
+      const minMs = MIN_VALID_LAP_MS[activeTrack];
+      if (minMs != null) {
+        const lapMs = parseLapTimeToMs(row.BestLap);
+        if (lapMs != null && lapMs < minMs) return true;
+      }
+
+      return false;
     }
 
     async function loadServerName(track) {

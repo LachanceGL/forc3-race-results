@@ -774,10 +774,10 @@
       return `https://www.hltv.org/img/static/flags/30x20/${iso2}.gif`;
     }
 
-    const COUNTRY_CACHE_KEY = "gt3_country_data_v10";
+    const COUNTRY_CACHE_KEY = "gt3_country_data_v11";
     const COUNTRY_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 
-    function renderCountryData(nationCounts) {
+    function renderCountryData(nationCounts, uniqueDriverCount) {
       const nations = Object.entries(nationCounts).sort((a, b) => b[1] - a[1]);
 
       if (nations.length === 0) {
@@ -790,7 +790,10 @@
 
       const subtitleEl = document.getElementById("country-subtitle");
       if (subtitleEl) {
-        subtitleEl.innerHTML = `🌍 <span class="country-count-number">${nations.length}</span> Countries Represented`;
+        const driverCountHtml = uniqueDriverCount
+          ? ` &nbsp;·&nbsp; 🏁 <span class="country-count-number">${uniqueDriverCount}</span> Unique Drivers`
+          : "";
+        subtitleEl.innerHTML = `🌍 <span class="country-count-number">${nations.length}</span> Countries Represented${driverCountHtml}`;
       }
 
       const grid = document.createElement("div");
@@ -930,7 +933,7 @@
         });
       }
 
-      return { nationCounts, nameToNation, nameToPlayerId, playerIdToNames, playerIdToNation, hadFailures };
+      return { nationCounts, nameToNation, nameToPlayerId, playerIdToNames, playerIdToNation, seenPlayerKeys: seenPlayers, hadFailures };
     }
 
     // Holds each track's fetched nation data once loaded, keyed by track id
@@ -963,8 +966,9 @@
       const combinedNameToPlayerId = {};
       const combinedPlayerIdToNames = {};
       const combinedPlayerIdToNation = {};
+      const combinedSeenPlayerKeys = new Set();
 
-      Object.values(loadedTrackData).forEach(({ nationCounts, nameToNation, nameToPlayerId, playerIdToNames, playerIdToNation }) => {
+      Object.values(loadedTrackData).forEach(({ nationCounts, nameToNation, nameToPlayerId, playerIdToNames, playerIdToNation, seenPlayerKeys }) => {
         Object.entries(nationCounts).forEach(([code, count]) => {
           combinedCounts[code] = (combinedCounts[code] || 0) + count;
         });
@@ -987,9 +991,16 @@
             if (!(pid in combinedPlayerIdToNation)) combinedPlayerIdToNation[pid] = nation;
           });
         }
+        // A driver's key (player_id, or a name-based fallback if that's
+        // missing) is the same across tracks, so unioning these Sets gives
+        // a true cross-track unique count — someone who's raced both
+        // Nordschleife and Spa is counted once, not twice.
+        if (seenPlayerKeys) {
+          seenPlayerKeys.forEach(key => combinedSeenPlayerKeys.add(key));
+        }
       });
 
-      renderCountryData(combinedCounts);
+      renderCountryData(combinedCounts, combinedSeenPlayerKeys.size);
 
       // Start from the plain per-name lookup, then override every name
       // variant of a known account with that account's most recent
@@ -1077,6 +1088,9 @@
         });
         cached.playerIdToNames = rebuilt;
       }
+      if (cached && cached.seenPlayerKeys) {
+        cached.seenPlayerKeys = new Set(cached.seenPlayerKeys);
+      }
 
       if (cached && cached.nationCounts) {
         loadedTrackData[dataKey] = cached;
@@ -1124,8 +1138,8 @@
             }
           }
 
-          const { nationCounts, nameToNation, nameToPlayerId, playerIdToNames, playerIdToNation, hadFailures } = result;
-          loadedTrackData[dataKey] = { nationCounts, nameToNation, nameToPlayerId, playerIdToNames, playerIdToNation };
+          const { nationCounts, nameToNation, nameToPlayerId, playerIdToNames, playerIdToNation, seenPlayerKeys, hadFailures } = result;
+          loadedTrackData[dataKey] = { nationCounts, nameToNation, nameToPlayerId, playerIdToNames, playerIdToNation, seenPlayerKeys };
           recomputeAndRenderTrackData();
           // Don't persist a degraded result — if some session fetches
           // failed even after the retry, let the next visit try again
@@ -1145,6 +1159,7 @@
                 nameToPlayerId,
                 playerIdToNames: playerIdToNamesArrays,
                 playerIdToNation,
+                seenPlayerKeys: Array.from(seenPlayerKeys),
                 timestamp: Date.now()
               }));
             } catch (err) {

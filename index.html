@@ -334,6 +334,43 @@
       font-size: 14px;
       outline: none;
     }
+
+    .rank-toggle-row {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .rank-toggle-row.visible {
+      display: flex;
+    }
+    .rank-toggle-label {
+      color: #999;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .rank-toggle-btn {
+      background: var(--surface-2);
+      border: 1px solid #333;
+      color: #999;
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    .rank-toggle-btn:hover {
+      border-color: #e63946;
+      color: #eee;
+    }
+    .rank-toggle-btn.active {
+      background: #e63946;
+      border-color: #e63946;
+      color: #fff;
+    }
     .leaderboard-search-input:focus {
       border-color: #e63946;
     }
@@ -851,6 +888,11 @@
       id="leaderboard-search"
       class="leaderboard-search-input"
       placeholder="Search drivers, cars and sessions">
+  </div>
+  <div class="rank-toggle-row" id="rank-toggle-row">
+    <span class="rank-toggle-label">Ranked by:</span>
+    <button type="button" class="rank-toggle-btn active" id="rank-toggle-total-time" data-rank-mode="total_time">Race Time</button>
+    <button type="button" class="rank-toggle-btn" id="rank-toggle-best-lap" data-rank-mode="best_lap">Best Lap</button>
   </div>
   <div id="leaderboard-status"></div>
   <div id="leaderboard-frame" class="leaderboard-frame"></div>
@@ -1721,10 +1763,7 @@
 
       const badgeText = config.updateNote || config.displayName || track;
       const label = config.title || "Hotlap";
-      const rankedByHtml = config.isRace
-        ? `<span class="leaderboard-track-badge">Ranked by: Total Time</span>`
-        : "";
-      titleEl.innerHTML = `${label} Top ${entryCount}<span class="leaderboard-track-badge">${badgeText}</span>${rankedByHtml}`;
+      titleEl.innerHTML = `${label} Top ${entryCount}<span class="leaderboard-track-badge">${badgeText}</span>`;
     }
 
     const LEADERBOARD_MAX_ENTRIES = 200;
@@ -1747,12 +1786,18 @@
     // actually determines position. Rows with no resolvable Total Time yet
     // (e.g. still waiting on that fetch, or explicitly marked invalid) sort
     // to the bottom rather than distorting the ranking with a "-".
+    // For Race-type leaderboards, which metric determines rank/position:
+    // "total_time" (official race result) or "best_lap" (fastest single
+    // lap, same ordering the API's /rows endpoint already returns
+    // natively). Resets to the default whenever the active track changes.
+    let raceRankMode = "total_time";
+
     function computeFilteredEntries(rows) {
       const cleanRows = rows.filter(row => !isFlagged(row));
       const raceConfig = LEADERBOARDS[activeTrack];
       const isRace = Boolean(raceConfig && raceConfig.isRace);
 
-      const orderedRows = isRace
+      const orderedRows = (isRace && raceRankMode === "total_time")
         ? cleanRows.slice().sort((a, b) => {
             const aTime = resolveTotalTimeMs(a);
             const bTime = resolveTotalTimeMs(b);
@@ -1761,7 +1806,7 @@
             if (bTime == null) return -1;
             return aTime - bTime;
           })
-        : cleanRows;
+        : cleanRows; // "best_lap" mode: /rows is already ordered by Best Lap natively
 
       return orderedRows
         .map((row, i) => ({ rank: i + 1, row }))
@@ -1953,6 +1998,18 @@
       liveBadgeEl.classList.remove("visible", "offline", "deactivated");
       const cheaterNoticeEl = document.getElementById("cheater-notice");
       if (cheaterNoticeEl) cheaterNoticeEl.classList.toggle("visible", track === "nordschleife");
+
+      // Reset to the default rank mode whenever the active track changes —
+      // "which metric ranks this board" shouldn't carry over from a
+      // different track.
+      raceRankMode = "total_time";
+      const rankToggleRowEl = document.getElementById("rank-toggle-row");
+      const config = LEADERBOARDS[track];
+      if (rankToggleRowEl) rankToggleRowEl.classList.toggle("visible", Boolean(config && config.isRace));
+      document.querySelectorAll(".rank-toggle-btn").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.rankMode === raceRankMode);
+      });
+
       loadLeaderboard(track);
       loadServerName(track);
       ensureTrackDataLoaded(track);
@@ -1978,6 +2035,11 @@
     {
       const cheaterNoticeEl = document.getElementById("cheater-notice");
       if (cheaterNoticeEl) cheaterNoticeEl.classList.toggle("visible", activeTrack === "nordschleife");
+    }
+    {
+      const rankToggleRowEl = document.getElementById("rank-toggle-row");
+      const config = LEADERBOARDS[activeTrack];
+      if (rankToggleRowEl) rankToggleRowEl.classList.toggle("visible", Boolean(config && config.isRace));
     }
 
     // Give legacy (deactivated) tracks' tabs a darker, muted look so they
@@ -2068,6 +2130,24 @@
         cheaterNoticeToggleEl.classList.remove("tooltip-open");
       });
     }
+
+    // ---- Race Time / Best Lap rank toggle (Race-type leaderboards only) ----
+    document.querySelectorAll(".rank-toggle-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const mode = btn.dataset.rankMode;
+        if (mode === raceRankMode) return; // already active, nothing to do
+        raceRankMode = mode;
+        document.querySelectorAll(".rank-toggle-btn").forEach(b => {
+          b.classList.toggle("active", b.dataset.rankMode === raceRankMode);
+        });
+        // Re-derive rank/order from the raw cached rows under the new mode.
+        const rawRows = leaderboardCache[activeTrack];
+        if (rawRows) {
+          currentLeaderboardEntries = computeFilteredEntries(rawRows);
+          applyLeaderboardSearch();
+        }
+      });
+    });
 
     // ---- Get Verified modal ----
     const verifyModalOverlay = document.getElementById("verify-modal-overlay");

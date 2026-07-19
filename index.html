@@ -132,7 +132,7 @@
     }
     .verify-modal {
       position: relative;
-      background: var(--surface-1);
+      background: linear-gradient(180deg, #000000 0%, #1a1a1a 100%);
       border: 1px solid #2e2e2e;
       border-radius: 10px;
       padding: 28px;
@@ -146,7 +146,9 @@
       align-items: center;
       gap: 8px;
       margin: 0 0 6px;
-      font-size: 18px;
+      font-size: 15px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
       color: #eee;
     }
     .verify-modal-badge-icon {
@@ -878,7 +880,7 @@
       <button type="button" class="verify-modal-close" id="verify-modal-close" aria-label="Close">&times;</button>
       <h3 id="verify-modal-title">
         <img src="https://raw.githubusercontent.com/LachanceGL/gt3forc3-website/refs/heads/main/GT3FORC3_VerifiedBadge01.png" alt="" class="verify-modal-badge-icon">
-        Get Verified
+        GT3FORC3 Verified Badge
       </h3>
       <p class="verify-modal-subtitle">Tell us who you are and we'll reach out on Discord to confirm.</p>
 
@@ -891,7 +893,11 @@
         <input type="text" id="verify-driver-name" placeholder="Exactly as shown on the leaderboard" maxlength="100">
       </div>
       <div class="verify-field">
-        <label for="verify-track">Track</label>
+        <label for="verify-nationality">Nationality</label>
+        <input type="text" id="verify-nationality" placeholder="e.g. Canada" maxlength="60">
+      </div>
+      <div class="verify-field">
+        <label for="verify-track">For which leaderboard track?</label>
         <select id="verify-track">
           <option value="Nordschleife">Nordschleife</option>
           <option value="Spa Francorchamps">Spa Francorchamps</option>
@@ -2035,6 +2041,7 @@
     const verifyFields = {
       discord: document.getElementById("verify-discord"),
       driverName: document.getElementById("verify-driver-name"),
+      nationality: document.getElementById("verify-nationality"),
       track: document.getElementById("verify-track"),
       message: document.getElementById("verify-message")
     };
@@ -2070,6 +2077,7 @@
     verifySubmitBtn.addEventListener("click", async () => {
       const discordUsername = verifyFields.discord.value.trim();
       const driverName = verifyFields.driverName.value.trim();
+      const nationality = verifyFields.nationality.value.trim();
       const track = verifyFields.track.value;
       const message = verifyFields.message.value.trim();
 
@@ -2087,7 +2095,7 @@
         const res = await fetch(WORKER_URL + "/discord/verify-request", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ discordUsername, driverName, track, message })
+          body: JSON.stringify({ discordUsername, driverName, nationality, track, message })
         });
 
         if (!res.ok) throw new Error("Request failed");

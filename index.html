@@ -99,9 +99,9 @@
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      background: rgba(255, 153, 0, 0.12);
-      border: 1px solid rgba(255, 153, 0, 0.35);
-      color: #ff9900;
+      background: rgba(230, 57, 70, 0.12);
+      border: 1px solid rgba(230, 57, 70, 0.35);
+      color: #e63946;
       padding: 7px 14px;
       border-radius: 6px;
       font-size: 13px;
@@ -110,7 +110,7 @@
       cursor: pointer;
     }
     .get-verified-link:hover {
-      background: rgba(255, 153, 0, 0.2);
+      background: rgba(230, 57, 70, 0.2);
     }
     .get-verified-badge-icon {
       width: 15px;
@@ -308,7 +308,12 @@
       opacity: 0;
       visibility: hidden;
       transition: opacity 0.15s ease;
-      pointer-events: none;
+    }
+    .cheater-notice-tooltip a {
+      color: inherit;
+      text-decoration: underline;
+      cursor: pointer;
+      display: block;
     }
     /* Desktop: reveal on hover. Mobile has no hover state, so tapping the
        badge instead toggles the .tooltip-open class via JS below. */
@@ -839,7 +844,7 @@
     <h3 class="leaderboard-title" id="leaderboard-title"></h3>
     <span class="cheater-notice" id="cheater-notice">
       ⚠ Anomalies will be flagged
-      <span class="cheater-notice-tooltip">There are cheaters, but glitches can happen too. If you believe your name was flagged by mistake, come to our Discord so we can look into it.</span>
+      <span class="cheater-notice-tooltip"><a href="https://discord.gg/edVd7RMfpH" target="_blank" rel="noopener">There are cheaters, but glitches can happen too. If you don't see your name and believe it was flagged by mistake, come to our Discord so we can look into it.</a></span>
     </span>
     <input
       type="text"

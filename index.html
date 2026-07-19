@@ -122,7 +122,7 @@
     .admin-panel {
       display: none;
       max-width: 420px;
-      margin: 0 auto 30px;
+      margin: 20px auto 30px;
       background: var(--surface-1);
       border: 1px solid #ff9900;
       border-radius: 10px;
@@ -933,6 +933,21 @@
   <!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "65e2f7685f054614a7a2adc1fae8132f"}'></script><!-- End Cloudflare Web Analytics -->
 </head>
 <body>
+  <div class="admin-panel" id="admin-panel">
+    <h3 class="admin-panel-title">🔧 Admin · Notify Verified Driver</h3>
+    <p class="admin-panel-subtitle">Sends the "you're verified" DM via the Discord bot. Not linked anywhere — only visible with #admin in the URL.</p>
+    <div class="verify-field">
+      <label for="admin-username">Discord username</label>
+      <input type="text" id="admin-username" placeholder="exact or partial username" maxlength="100">
+    </div>
+    <div class="verify-field">
+      <label for="admin-secret">Admin Password</label>
+      <input type="password" id="admin-secret" placeholder="" maxlength="200">
+    </div>
+    <button type="button" class="admin-panel-btn" id="admin-notify-btn">Send Verified DM</button>
+    <div class="admin-panel-result" id="admin-panel-result"></div>
+  </div>
+
   <div class="header-row">
     <div>
       <h1><a href="/" class="title-link">GT3FORC3.COM</a></h1>
@@ -1022,21 +1037,6 @@
       Join our Discord
     </a>
   </footer>
-
-  <div class="admin-panel" id="admin-panel">
-    <h3 class="admin-panel-title">🔧 Admin · Notify Verified Driver</h3>
-    <p class="admin-panel-subtitle">Sends the "you're verified" DM via the Discord bot. Not linked anywhere — only visible with #admin in the URL.</p>
-    <div class="verify-field">
-      <label for="admin-username">Discord username</label>
-      <input type="text" id="admin-username" placeholder="exact or partial username" maxlength="100">
-    </div>
-    <div class="verify-field">
-      <label for="admin-secret">Admin Password</label>
-      <input type="password" id="admin-secret" placeholder="" maxlength="200">
-    </div>
-    <button type="button" class="admin-panel-btn" id="admin-notify-btn">Send Verified DM</button>
-    <div class="admin-panel-result" id="admin-panel-result"></div>
-  </div>
 
   <div class="verify-modal-overlay" id="verify-modal-overlay">
     <div class="verify-modal" role="dialog" aria-modal="true" aria-labelledby="verify-modal-title">

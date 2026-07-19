@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GT3FORC3.COM / Sim Racing Community</title>
+  <title>GT3FORC3.COM // Sim Racing Community</title>
   <style>
     :root {
       /* Unified surface scale — used across the site instead of the
@@ -1365,7 +1365,8 @@
       "Maciej Kubiak",
       "Eric Dovjak",
       "Eoin Flynn",
-      "David Bobis"
+      "David Bobis",
+      "Giancarlo Raggio"
     ]);
     const VERIFIED_BADGE_URL = "https://raw.githubusercontent.com/LachanceGL/gt3forc3-website/refs/heads/main/GT3FORC3_VerifiedBadge01.png";
 
@@ -1410,7 +1411,7 @@
           expandedVerifiedNameKeys.has(row.FullName.trim().toLowerCase())
         );
         const verifiedHtml = isVerified
-          ? `<img class="lb-verified-badge" src="${VERIFIED_BADGE_URL}" alt="Verified" title="Verified driver">`
+          ? `<img class="lb-verified-badge" src="${VERIFIED_BADGE_URL}" alt="Verified" title="Verified Driver">`
           : "";
         const driverTimesByDate = row.FullName ? totalTimesByDate[row.FullName.trim().toLowerCase()] : null;
         const totalTimeMs = driverTimesByDate ? driverTimesByDate[row.SessionDate] : null;

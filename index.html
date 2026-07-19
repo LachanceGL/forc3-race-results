@@ -1548,6 +1548,13 @@
     // time silently clobber another's for anyone who raced more than once.
     const raceTotalTimeData = {};
 
+    // trackId -> name -> sessionDate -> lap count, and trackId -> sessionDate
+    // -> the highest lap count anyone reached that session ("full race"
+    // distance). Used to filter DNFs/partial runs out of Race-type
+    // leaderboards — see isFlagged().
+    const raceLapCountData = {};
+    const raceFullLapCountData = {};
+
     // When each track's total-time data was last successfully fetched, and
     // any fetch currently in flight for it — mirrors the driver/country
     // scan's own caching pattern. Without this, switching tabs back and
@@ -1599,7 +1606,7 @@
         .filter(s => s.session_type === "Race")
         .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
-      if (raceSessions.length === 0) return {};
+      if (raceSessions.length === 0) return { totalTimesByDate: {}, lapCountByDate: {}, fullLapCountByDate: {} };
 
       // Walk every race session (not just the latest) — the Best Lap
       // leaderboard (/rows) is an all-time ranking, so it can surface
@@ -1609,6 +1616,14 @@
       // reasoning as the driver/country scan: a burst of parallel requests
       // was failing outright on some mobile networks.
       const nameToTotalTimesByDate = {};
+      // name -> { sessionDate -> lap count } and sessionDate -> the highest
+      // lap count anyone reached that session (the "full race" distance,
+      // since we don't have a reliable structured field for the configured
+      // lap count — the highest a real finisher reached is the next best
+      // signal). Used to filter out DNFs/partial runs from the ranking.
+      const nameToLapCountByDate = {};
+      const fullLapCountByDate = {};
+
       for (const session of raceSessions) {
         let detail;
         try {
@@ -1644,9 +1659,34 @@
             nameToTotalTimesByDate[nameKey][sessionDate] = timeMs;
           }
         });
+
+        // Count each driver's completed laps this session via driver_key,
+        // then track the highest count anyone reached — that's our stand-in
+        // for "the full race distance."
+        const lapCountByGuid = {};
+        (detail.laps || []).forEach(lap => {
+          if (!lap.driver_key) return;
+          const key = `${lap.driver_key.a}-${lap.driver_key.b}`;
+          lapCountByGuid[key] = (lapCountByGuid[key] || 0) + 1;
+        });
+
+        let sessionMaxLaps = 0;
+        Object.entries(lapCountByGuid).forEach(([guidKey, count]) => {
+          const name = nameByGuid[guidKey];
+          if (!name) return;
+          const nameKey = name.toLowerCase();
+          if (!nameToLapCountByDate[nameKey]) nameToLapCountByDate[nameKey] = {};
+          if (!(sessionDate in nameToLapCountByDate[nameKey])) {
+            nameToLapCountByDate[nameKey][sessionDate] = count;
+          }
+          if (count > sessionMaxLaps) sessionMaxLaps = count;
+        });
+        if (sessionMaxLaps > 0 && !(sessionDate in fullLapCountByDate)) {
+          fullLapCountByDate[sessionDate] = sessionMaxLaps;
+        }
       }
 
-      return nameToTotalTimesByDate;
+      return { totalTimesByDate: nameToTotalTimesByDate, lapCountByDate: nameToLapCountByDate, fullLapCountByDate };
     }
 
     // Loads every race's total times for a track. Cached in-memory for a
@@ -1667,10 +1707,15 @@
 
       const fetchPromise = (async () => {
         try {
-          raceTotalTimeData[trackId] = await fetchRaceTotalTimes(config.workerPrefix);
+          const result = await fetchRaceTotalTimes(config.workerPrefix);
+          raceTotalTimeData[trackId] = result.totalTimesByDate;
+          raceLapCountData[trackId] = result.lapCountByDate;
+          raceFullLapCountData[trackId] = result.fullLapCountByDate;
           raceTotalTimeLoadedAt[trackId] = Date.now();
         } catch (err) {
           raceTotalTimeData[trackId] = raceTotalTimeData[trackId] || {};
+          raceLapCountData[trackId] = raceLapCountData[trackId] || {};
+          raceFullLapCountData[trackId] = raceFullLapCountData[trackId] || {};
         } finally {
           delete pendingRaceTotalTimeFetch[trackId];
         }
@@ -2237,6 +2282,21 @@
       if (minMs != null) {
         const lapMs = parseLapTimeToMs(row.BestLap);
         if (lapMs != null && lapMs < minMs) return true;
+      }
+
+      // On Race-type leaderboards, only show drivers who completed the
+      // full race distance — a DNF/partial run (fewer laps than whoever
+      // went furthest that session) can otherwise rank #1 purely on having
+      // a small total time, ahead of drivers who actually finished.
+      const raceConfig = LEADERBOARDS[activeTrack];
+      if (raceConfig && raceConfig.isRace && nameKey) {
+        const fullLapData = raceFullLapCountData[activeTrack];
+        const fullLaps = fullLapData ? fullLapData[row.SessionDate] : null;
+        if (fullLaps != null) {
+          const lapData = raceLapCountData[activeTrack];
+          const driverLaps = lapData && lapData[nameKey] ? lapData[nameKey][row.SessionDate] : null;
+          if (driverLaps == null || driverLaps < fullLaps) return true;
+        }
       }
 
       return false;

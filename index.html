@@ -2383,7 +2383,7 @@
       document.getElementById("live-player-count").textContent = "";
       liveBadgeEl.classList.remove("visible", "offline", "deactivated");
       const cheaterNoticeEl = document.getElementById("cheater-notice");
-      if (cheaterNoticeEl) cheaterNoticeEl.classList.toggle("visible", track === "nordschleife");
+      if (cheaterNoticeEl) cheaterNoticeEl.classList.toggle("visible", Boolean(LEADERBOARDS[track]));
 
       // Reset to the default rank mode whenever the active track changes —
       // "which metric ranks this board" shouldn't carry over from a
@@ -2421,7 +2421,7 @@
     }
     {
       const cheaterNoticeEl = document.getElementById("cheater-notice");
-      if (cheaterNoticeEl) cheaterNoticeEl.classList.toggle("visible", activeTrack === "nordschleife");
+      if (cheaterNoticeEl) cheaterNoticeEl.classList.toggle("visible", Boolean(LEADERBOARDS[activeTrack]));
     }
     {
       const rankToggleRowEl = document.getElementById("rank-toggle-row");

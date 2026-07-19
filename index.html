@@ -934,8 +934,7 @@
   <div id="leaderboard-frame" class="leaderboard-frame"></div>
 
   <div class="section-box" id="crash-report-section">
-    <h2 class="section-title">🚨 Crash Report</h2>
-    <div class="section-subtitle" id="crash-report-subtitle">Most recent session</div>
+    <div class="section-subtitle" id="crash-report-subtitle">🚨 Loading crash data...</div>
     <div id="crash-report-content"></div>
   </div>
 
@@ -1718,7 +1717,9 @@
         return;
       }
 
-      subtitleEl.textContent = `Today · ${formatSessionDate(data.todayDate)}${data.sessionCount ? ` (${data.sessionCount} session${data.sessionCount === 1 ? "" : "s"})` : ""}`;
+      const trackConfig = LEADERBOARDS[activeTrack];
+      const trackName = (trackConfig && trackConfig.displayName) || activeTrack;
+      subtitleEl.textContent = `🚨 Crash Report · ${trackName} · Today · ${formatSessionDate(data.todayDate)}${data.sessionCount ? ` (${data.sessionCount} session${data.sessionCount === 1 ? "" : "s"})` : ""}`;
 
       if (!data.totalIncidents) {
         contentEl.innerHTML = `<div class="crash-report-empty">No significant incidents today. 🎉</div>`;

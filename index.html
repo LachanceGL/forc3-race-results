@@ -1921,7 +1921,14 @@
         // Race-type leaderboards get an extra Total Time column, sourced
         // from that race's own results file (time_standings), separately
         // from the public /rows leaderboard which only has best lap.
-        isRace: true
+        isRace: true,
+        // Total Time is only comparable across rows when every race ran
+        // the same distance — a 4-lap race's total will always look
+        // "faster" than a 5-lap race's, regardless of who's actually
+        // quicker. Rather than rank whatever distance each row happened
+        // to run, only show rows from races that hit this exact lap
+        // count, matching the server's standard 5-lap Race format.
+        requiredLaps: 5
       },
       kyalami: {
         workerPrefix: "/server2",
@@ -2284,19 +2291,22 @@
         if (lapMs != null && lapMs < minMs) return true;
       }
 
-      // On Race-type leaderboards, only show drivers who completed the
-      // full race distance — a DNF/partial run (fewer laps than whoever
-      // went furthest that session) can otherwise rank #1 purely on having
-      // a small total time, ahead of drivers who actually finished.
+      // On Race-type leaderboards, Total Time is only a fair comparison
+      // between rows that ran the same race distance — a shorter race
+      // will always produce a smaller total regardless of pace. Rather
+      // than accept whatever distance each row happened to run, only show
+      // rows from a race that hit the track's standard lap count exactly.
       const raceConfig = LEADERBOARDS[activeTrack];
-      if (raceConfig && raceConfig.isRace && nameKey) {
+      if (raceConfig && raceConfig.isRace && raceConfig.requiredLaps != null && nameKey) {
+        const lapData = raceLapCountData[activeTrack];
+        const driverLaps = lapData && lapData[nameKey] ? lapData[nameKey][row.SessionDate] : null;
+        // Only filter once lap data for this session has actually loaded —
+        // undefined session data (not yet fetched) means "unknown", not
+        // "didn't run the full distance", so it's left alone rather than
+        // hidden.
         const fullLapData = raceFullLapCountData[activeTrack];
-        const fullLaps = fullLapData ? fullLapData[row.SessionDate] : null;
-        if (fullLaps != null) {
-          const lapData = raceLapCountData[activeTrack];
-          const driverLaps = lapData && lapData[nameKey] ? lapData[nameKey][row.SessionDate] : null;
-          if (driverLaps == null || driverLaps < fullLaps) return true;
-        }
+        const sessionDataLoaded = fullLapData && row.SessionDate in fullLapData;
+        if (sessionDataLoaded && driverLaps !== raceConfig.requiredLaps) return true;
       }
 
       return false;

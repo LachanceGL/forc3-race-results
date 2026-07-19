@@ -372,6 +372,11 @@
       opacity: 1;
       visibility: visible;
     }
+    .cheater-notice-tooltip-divider {
+      height: 1px;
+      background: rgba(255, 153, 0, 0.25);
+      margin: 8px 0;
+    }
     .leaderboard-search-input {
       display: block;
       width: 100%;
@@ -2392,8 +2397,8 @@
       const tooltipEl = document.getElementById("cheater-notice-tooltip-text");
       if (!tooltipEl) return;
       const config = LEADERBOARDS[track];
-      tooltipEl.textContent = (config && config.isRace)
-        ? `${CHEATER_TOOLTIP_BASE} Only Completed Race will show up.`
+      tooltipEl.innerHTML = (config && config.isRace)
+        ? `Only completed races will show up.<div class="cheater-notice-tooltip-divider"></div>${CHEATER_TOOLTIP_BASE}`
         : CHEATER_TOOLTIP_BASE;
     }
 

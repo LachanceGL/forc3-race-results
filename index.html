@@ -2377,6 +2377,12 @@
     // refresh rate) absorbs the actual Discord API load, so this is cheap.
     setInterval(loadDiscordStats, 90 * 1000);
 
+    // Re-render the crash report every minute just to reshuffle the joke
+    // emoji — renderCrashReport() only reads from already-cached data, so
+    // this costs nothing network-wise, it just picks a new random emoji
+    // each time via randomJokeEmoji().
+    setInterval(renderCrashReport, 60 * 1000);
+
     // The anomalies-notice tooltip works via CSS :hover on desktop, but
     // mobile has no hover state — a tap fires a click instead, so toggle a
     // class to show/hide it there, and close it again on a tap anywhere

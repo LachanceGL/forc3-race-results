@@ -125,9 +125,10 @@
       inset: 0;
       background: rgba(0, 0, 0, 0.6);
       z-index: 100;
-      align-items: center;
+      align-items: flex-start;
       justify-content: center;
-      padding: 20px;
+      padding: 60px 20px 20px;
+      overflow-y: auto;
     }
     .verify-modal-overlay.visible {
       display: flex;
@@ -890,7 +891,7 @@
       placeholder="Search drivers, cars and sessions">
   </div>
   <div class="rank-toggle-row" id="rank-toggle-row">
-    <span class="rank-toggle-label">Ranked by:</span>
+    <span class="rank-toggle-label">Ranked by</span>
     <button type="button" class="rank-toggle-btn active" id="rank-toggle-total-time" data-rank-mode="total_time">Race Time</button>
     <button type="button" class="rank-toggle-btn" id="rank-toggle-best-lap" data-rank-mode="best_lap">Best Lap</button>
   </div>

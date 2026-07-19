@@ -1721,7 +1721,10 @@
 
       const badgeText = config.updateNote || config.displayName || track;
       const label = config.title || "Hotlap";
-      titleEl.innerHTML = `${label} Top ${entryCount}<span class="leaderboard-track-badge">${badgeText}</span>`;
+      const rankedByHtml = config.isRace
+        ? `<span class="leaderboard-track-badge">Ranked by: Total Time</span>`
+        : "";
+      titleEl.innerHTML = `${label} Top ${entryCount}<span class="leaderboard-track-badge">${badgeText}</span>${rankedByHtml}`;
     }
 
     const LEADERBOARD_MAX_ENTRIES = 200;

@@ -2329,8 +2329,11 @@
       // will always produce a smaller total regardless of pace. Rather
       // than accept whatever distance each row happened to run, only show
       // rows from a race that hit the track's standard lap count exactly.
+      // This only matters in Race Time mode — Best Lap mode ranks by a
+      // single lap's time, which is equally valid whether someone drove
+      // 1 lap or the full distance, so partial runs are allowed there.
       const raceConfig = LEADERBOARDS[activeTrack];
-      if (raceConfig && raceConfig.isRace && raceConfig.requiredLaps != null && nameKey) {
+      if (raceConfig && raceConfig.isRace && raceConfig.requiredLaps != null && nameKey && raceRankMode === "total_time") {
         const lapData = raceLapCountData[activeTrack];
         const driverLaps = lapData && lapData[nameKey] ? lapData[nameKey][row.SessionDate] : null;
         // Only filter once lap data for this session has actually loaded —

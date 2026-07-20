@@ -609,6 +609,13 @@
       font-size: 11px;
       letter-spacing: 0.03em;
     }
+    .lb-total-time-grayed {
+      color: #666 !important;
+    }
+    .lb-total-time-strike {
+      text-decoration: line-through;
+      opacity: 0.6;
+    }
     .lb-session {
       text-align: right;
       color: rgba(238, 238, 238, 0.4);
@@ -1000,7 +1007,7 @@
     </a>
     <a class="leaderboard-tab" href="#redbullring" data-track="redbullring">
       Red Bull Ring
-      <span class="leaderboard-tab-type">Racing</span>
+      <span class="leaderboard-tab-type">Race</span>
     </a>
   </div>
   <div class="leaderboard-server-name" id="leaderboard-server-name">
@@ -1939,7 +1946,7 @@
         workerPrefix: "/server3",
         shareKey: "3a0072bb-b916-4262-8e81-28f6486b4f75",
         displayName: "Red Bull Ring",
-        title: "Racing",
+        title: "Race",
         updateNote: "Ranking updated every race",
         // Race-type leaderboards get an extra Total Time column, sourced
         // from that race's own results file (time_standings), separately
@@ -2074,6 +2081,10 @@
       const raceConfig = LEADERBOARDS[activeTrack];
       const isRace = Boolean(raceConfig && raceConfig.isRace);
       const totalTimesByDate = raceTotalTimeData[activeTrack] || {};
+      // In Best Lap mode, Race Time isn't what's being ranked by — grey the
+      // whole column out, and strike through any row that didn't complete
+      // the full race, since that value isn't a valid/comparable time.
+      const bestLapModeActive = isRace && raceRankMode === "best_lap";
 
       const table = document.createElement("table");
       table.innerHTML = `
@@ -2083,7 +2094,7 @@
             <th>Driver</th>
             <th>Car</th>
             <th class="lb-best">Best Lap</th>
-            ${isRace ? '<th class="lb-total-time">Race Time</th>' : ""}
+            ${isRace ? `<th class="lb-total-time${bestLapModeActive ? " lb-total-time-grayed" : ""}">Race Time</th>` : ""}
             <th class="lb-session">Session</th>
           </tr>
         </thead>
@@ -2112,8 +2123,33 @@
         const driverTimesByDate = row.FullName ? totalTimesByDate[row.FullName.trim().toLowerCase()] : null;
         const totalTimeMs = driverTimesByDate ? driverTimesByDate[row.SessionDate] : null;
         const isInvalidTotalTime = row.FullName && INVALID_TOTAL_TIME_DRIVERS.has(row.FullName);
+
+        // Did this row complete the full race distance? Only meaningful
+        // (and only checked) in Best Lap mode — Race Time mode already
+        // filters incomplete runs out entirely, so there's nothing to
+        // strike through there.
+        let didNotCompleteRace = false;
+        if (bestLapModeActive && raceConfig.requiredLaps != null && row.FullName) {
+          const nameKey = row.FullName.trim().toLowerCase();
+          const lapData = raceLapCountData[activeTrack];
+          const driverLaps = lapData && lapData[nameKey] ? lapData[nameKey][row.SessionDate] : null;
+          const fullLapData = raceFullLapCountData[activeTrack];
+          const sessionDataLoaded = fullLapData && row.SessionDate in fullLapData;
+          // Only strike through once we actually know the lap count —
+          // unloaded data means "unknown", not "didn't finish".
+          if (sessionDataLoaded) {
+            didNotCompleteRace = driverLaps !== raceConfig.requiredLaps;
+          }
+        }
+
+        const totalTimeCellClasses = [
+          "lb-total-time",
+          isInvalidTotalTime ? "lb-total-time-invalid" : "",
+          bestLapModeActive ? "lb-total-time-grayed" : "",
+          didNotCompleteRace ? "lb-total-time-strike" : ""
+        ].filter(Boolean).join(" ");
         const totalTimeCell = isRace
-          ? `<td class="lb-total-time${isInvalidTotalTime ? " lb-total-time-invalid" : ""}">${isInvalidTotalTime ? "Invalid" : (formatRaceTime(totalTimeMs) || "-")}</td>`
+          ? `<td class="${totalTimeCellClasses}">${isInvalidTotalTime ? "Invalid" : (formatRaceTime(totalTimeMs) || "-")}</td>`
           : "";
         tr.innerHTML = `
           <td class="lb-pos">${medal}${rank}</td>

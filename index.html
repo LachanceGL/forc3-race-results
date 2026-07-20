@@ -1377,6 +1377,10 @@
         if (!currentNation) return;
         namesSet.forEach(name => { finalNameToNation[name] = currentNation; });
       });
+      // Manual overrides always win, applied last.
+      Object.entries(NATION_OVERRIDES).forEach(([name, nation]) => {
+        finalNameToNation[name.trim().toLowerCase()] = nation;
+      });
       driverNationMap = finalNameToNation;
 
       // For each name in a source list, resolve its player_id (if known)
@@ -1996,6 +2000,16 @@
     // Add a driver's exact FullName here (as it appears in the leaderboard) to flag them.
     // The note text shows under their name and their best lap gets struck through.
     // Remove the entry once they're actually removed from the leaderboard by the server admin.
+    // Add a driver's exact FullName here to manually override their
+    // detected nationality (ISO alpha-3 code, same codes used elsewhere,
+    // e.g. "DEU" for Germany). Takes priority over whatever the automatic
+    // name/player_id-based detection found — useful when a player's
+    // in-game nation setting doesn't match reality, or auto-detection
+    // picked up a stale value.
+    const NATION_OVERRIDES = {
+      "Florian Bauer": "DEU"
+    };
+
     const FLAGGED_DRIVERS = {
       "Nathan VAN DE HEL": "Cheater, will be removed",
       "Jakub Qrwc": "Cheater, will be removed",
@@ -2037,7 +2051,8 @@
       "Giancarlo Raggio",
       "Mark Heijnemans",
       "G. LACH",
-      "Pablo Navarrete"
+      "Pablo Navarrete",
+      "Florian Bauer"
     ]);
     const VERIFIED_BADGE_URL = "https://raw.githubusercontent.com/LachanceGL/gt3forc3-website/refs/heads/main/GT3FORC3_VerifiedBadge01.png";
 

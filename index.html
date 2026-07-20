@@ -2257,7 +2257,16 @@
       updateLeaderboardTitle(track, 0);
 
       try {
-        const res = await fetch(WORKER_URL + `${config.workerPrefix}/leaderboards/embed/${config.shareKey}/rows`);
+        // For Race-type leaderboards, fetch the lap-completion data (needed
+        // to filter out DNFs/partial runs) alongside the rows themselves,
+        // in parallel, and wait for both before the first render — that
+        // way the leaderboard paints already-correct instead of briefly
+        // showing everyone before incomplete runs get filtered out a
+        // moment later. Non-race tracks skip this entirely since they
+        // don't have this filter.
+        const rowsPromise = fetch(WORKER_URL + `${config.workerPrefix}/leaderboards/embed/${config.shareKey}/rows`);
+        const racePromise = config.isRace ? ensureRaceTotalTimesLoaded(track) : Promise.resolve();
+        const [res] = await Promise.all([rowsPromise, racePromise]);
         if (!res.ok) throw new Error("Server returned " + res.status);
         const rows = await res.json();
 

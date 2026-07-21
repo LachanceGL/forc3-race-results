@@ -28,15 +28,17 @@
       max-width: 900px;
       margin: 0 auto;
     }
-    h1 { margin-top: 0; margin-bottom: 0; color: #e52421; }
     .title-link {
-      color: inherit;
-      text-decoration: none;
+      display: inline-block;
     }
     .title-link:hover {
       opacity: 0.85;
     }
-    .subtitle { color: #999; margin-top: -8px; margin-bottom: 24px; font-size: 10px; font-weight: 400; font-style: italic; }
+    .site-logo {
+      height: 64px;
+      width: auto;
+      display: block;
+    }
 
     .header-row {
       display: flex;
@@ -45,10 +47,6 @@
       flex-wrap: wrap;
       gap: 16px;
       margin-bottom: 24px;
-    }
-    .header-row h1,
-    .header-row .subtitle {
-      margin-bottom: 0;
     }
 
     .discord-link {
@@ -980,8 +978,9 @@
 
   <div class="header-row">
     <div>
-      <h1><a href="/" class="title-link">GT3FORC3.COM</a></h1>
-      <div class="subtitle" id="page-subtitle">SIM RACING COMMUNITY</div>
+      <a href="/" class="title-link">
+        <img src="https://raw.githubusercontent.com/LachanceGL/gt3forc3-website/eb59dedc218cecab1e7e6fa3efb0ad6d34e2b3a0/gt3forc3_logo_01.svg" alt="GT3FORC3.COM — Sim Racing Community" class="site-logo">
+      </a>
     </div>
 
     <div class="discord-header-block">

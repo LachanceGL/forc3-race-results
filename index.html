@@ -1037,6 +1037,10 @@
     <button type="button" class="rank-toggle-btn" id="rank-toggle-best-lap" data-rank-mode="best_lap">Best Lap</button>
     <span class="rank-toggle-note" id="rank-toggle-note">Race Time only shows Completed Races</span>
   </div>
+  <div class="rank-toggle-row" id="verified-filter-row">
+    <span class="rank-toggle-label">Filter by</span>
+    <button type="button" class="rank-toggle-btn" id="verified-filter-btn">🛡 Verified Driver</button>
+  </div>
   <div id="leaderboard-status"></div>
   <div id="leaderboard-frame" class="leaderboard-frame"></div>
 
@@ -2216,6 +2220,11 @@
     // natively). Resets to the default whenever the active track changes.
     let raceRankMode = "total_time";
 
+    // Hotlap-only toggle: when true, only drivers with the verified badge
+    // show on the leaderboard. Resets to off whenever the active track
+    // changes.
+    let verifiedOnlyFilter = false;
+
     // The "Race Time only shows Completed Races" note only applies while
     // ranking by Race Time — Best Lap mode has no such restriction.
     function updateRankToggleNote() {
@@ -2402,6 +2411,16 @@
         if (sessionDataLoaded && driverLaps !== raceConfig.requiredLaps) return true;
       }
 
+      // Hotlap-only "Filter by Verified Driver" toggle — hides any row
+      // that isn't verified when the filter is on. Doesn't apply on
+      // Race-type leaderboards, which have their own separate toggle row.
+      if (verifiedOnlyFilter && !(raceConfig && raceConfig.isRace)) {
+        const isVerified = Boolean(
+          row.FullName && (VERIFIED_DRIVERS.has(row.FullName) || (nameKey && expandedVerifiedNameKeys.has(nameKey)))
+        );
+        if (!isVerified) return true;
+      }
+
       return false;
     }
 
@@ -2507,10 +2526,17 @@
       const rankToggleRowEl = document.getElementById("rank-toggle-row");
       const config = LEADERBOARDS[track];
       if (rankToggleRowEl) rankToggleRowEl.classList.toggle("visible", Boolean(config && config.isRace));
-      document.querySelectorAll(".rank-toggle-btn").forEach(btn => {
+      document.querySelectorAll(".rank-toggle-btn[data-rank-mode]").forEach(btn => {
         btn.classList.toggle("active", btn.dataset.rankMode === raceRankMode);
       });
       updateRankToggleNote();
+
+      // Same reset for the Hotlap-only "Filter by Verified Driver" toggle.
+      verifiedOnlyFilter = false;
+      const verifiedFilterRowEl = document.getElementById("verified-filter-row");
+      if (verifiedFilterRowEl) verifiedFilterRowEl.classList.toggle("visible", Boolean(config && !config.isRace));
+      const verifiedFilterBtn = document.getElementById("verified-filter-btn");
+      if (verifiedFilterBtn) verifiedFilterBtn.classList.remove("active");
 
       loadLeaderboard(track);
       loadServerName(track);
@@ -2545,6 +2571,11 @@
       const config = LEADERBOARDS[activeTrack];
       if (rankToggleRowEl) rankToggleRowEl.classList.toggle("visible", Boolean(config && config.isRace));
       updateRankToggleNote();
+    }
+    {
+      const config = LEADERBOARDS[activeTrack];
+      const verifiedFilterRowEl = document.getElementById("verified-filter-row");
+      if (verifiedFilterRowEl) verifiedFilterRowEl.classList.toggle("visible", Boolean(config && !config.isRace));
     }
 
     // Give legacy (deactivated) tracks' tabs a darker, muted look so they
@@ -2644,12 +2675,12 @@
     }
 
     // ---- Race Time / Best Lap rank toggle (Race-type leaderboards only) ----
-    document.querySelectorAll(".rank-toggle-btn").forEach(btn => {
+    document.querySelectorAll(".rank-toggle-btn[data-rank-mode]").forEach(btn => {
       btn.addEventListener("click", () => {
         const mode = btn.dataset.rankMode;
         if (mode === raceRankMode) return; // already active, nothing to do
         raceRankMode = mode;
-        document.querySelectorAll(".rank-toggle-btn").forEach(b => {
+        document.querySelectorAll(".rank-toggle-btn[data-rank-mode]").forEach(b => {
           b.classList.toggle("active", b.dataset.rankMode === raceRankMode);
         });
         updateRankToggleNote();
@@ -2661,6 +2692,21 @@
         }
       });
     });
+
+    // ---- Filter by Verified Driver toggle (Hotlap leaderboards only) ----
+    const verifiedFilterBtnEl = document.getElementById("verified-filter-btn");
+    if (verifiedFilterBtnEl) {
+      verifiedFilterBtnEl.addEventListener("click", () => {
+        verifiedOnlyFilter = !verifiedOnlyFilter;
+        verifiedFilterBtnEl.classList.toggle("active", verifiedOnlyFilter);
+        const rawRows = leaderboardCache[activeTrack];
+        if (rawRows) {
+          currentLeaderboardEntries = computeFilteredEntries(rawRows);
+          updateLeaderboardTitle(activeTrack, currentLeaderboardEntries.length);
+          applyLeaderboardSearch();
+        }
+      });
+    }
 
     // ---- Get Verified modal ----
     const verifyModalOverlay = document.getElementById("verify-modal-overlay");

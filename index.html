@@ -2040,6 +2040,15 @@
       "Florian Bauer": "DEU"
     };
 
+    // Add a driver's exact FullName here to override how their name is
+    // DISPLAYED on the leaderboard, without changing anything else — the
+    // real FullName (from the game) is still what's used for flagging,
+    // verification, nationality lookup, and search. Useful for names that
+    // are just visually awkward (e.g. a repeated word).
+    const DISPLAY_NAME_OVERRIDES = {
+      "TMRD TMRD": "TMRD"
+    };
+
     const FLAGGED_DRIVERS = {
       "Nathan VAN DE HEL": "Cheater, will be removed",
       "Jakub Qrwc": "Cheater, will be removed",
@@ -2054,8 +2063,7 @@
       "Pham Vu": "Cheater, will be removed",
       "Martin Fandler": "Cheater, will be removed",
       "Matteo De Blick": "Cheater, will be removed",
-      "Yann Manage": "Cheater, will be removed",
-      "TMRD TMRD": "Cheater, will be removed"
+      "Yann Manage": "Cheater, will be removed"
     };
 
     // For entries with no driver name (shown as "—"), flag by exact BestLap time instead,
@@ -2166,7 +2174,7 @@
           : "";
         tr.innerHTML = `
           <td class="lb-pos">${medal}${rank}</td>
-          <td><div class="lb-driver-name">${flagHtml}${row.FullName || "—"}${verifiedHtml}</div></td>
+          <td><div class="lb-driver-name">${flagHtml}${(row.FullName && DISPLAY_NAME_OVERRIDES[row.FullName]) || row.FullName || "—"}${verifiedHtml}</div></td>
           <td class="lb-car">${row.CarName || "—"}</td>
           <td class="lb-best">${row.BestLap || "-"}</td>
           ${totalTimeCell}

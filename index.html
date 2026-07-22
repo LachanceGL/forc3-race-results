@@ -1008,11 +1008,11 @@
   <div class="leaderboard-tabs">
     <a class="leaderboard-tab active" href="#nordschleife" data-track="nordschleife">
       Nordschleife
-      <span class="leaderboard-tab-type">Hotlap</span>
+      <span class="leaderboard-tab-type">Hot Lap</span>
     </a>
     <a class="leaderboard-tab" href="#spa" data-track="spa">
       Spa Francorchamps
-      <span class="leaderboard-tab-type">Hotlap</span>
+      <span class="leaderboard-tab-type">Hot Lap</span>
     </a>
     <!-- Red Bull Ring temporarily disabled — tab hidden, but its full
          config below is left untouched so it can come back instantly by
@@ -1951,7 +1951,7 @@
         workerPrefix: "/server1",
         shareKey: "ef64a8e5-f0cc-4fda-9242-33086d827694",
         displayName: "Nordschleife",
-        title: "Hotlap",
+        title: "Hot Lap",
         updateNote: "Ranking updated every 8 hours"
       },
       redbullring: {
@@ -1976,7 +1976,7 @@
         workerPrefix: "/server2",
         shareKey: "a6aea2bb-9846-446d-9987-7d64cbdd90e6",
         displayName: "Kyalami",
-        title: "Hotlap",
+        title: "Hot Lap",
         // Server 2 now runs Red Bull Ring, not Kyalami — same situation as
         // Spa below. Frozen leaderboard, no live status of its own anymore.
         legacy: true,
@@ -1990,7 +1990,7 @@
         workerPrefix: "/server2",
         shareKey: "c8393a9b-16f2-4e29-9ddb-7de2ab3ad5ae",
         displayName: "Spa Francorchamps",
-        title: "Hotlap",
+        title: "Hot Lap",
         updateNote: "Ranking updated every 8 hours"
       }
     };
@@ -2203,7 +2203,7 @@
       }
 
       const badgeText = config.updateNote || config.displayName || track;
-      const label = config.title || "Hotlap";
+      const label = config.title || "Hot Lap";
       titleEl.innerHTML = `${label} Top ${entryCount}<span class="leaderboard-track-badge">${badgeText}</span>`;
     }
 
